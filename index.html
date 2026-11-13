@@ -1,0 +1,1669 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Butterbrot Kartenspiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: ein Bildschirm. Gegner oben, Brotbrett mit Stapeln in der Mitte, eigene Hand unten.
+     Eine Welt, ein Thema: karierte Tischdecke, Holzbrett, Butter als einzige laute Farbe. */
+  --cloth:#23466b;
+  --cloth-hi:#34608f;
+  --board:#d49c5c;
+  --board-dk:#a86f35;
+  --butter:#ffd84d;
+  --butter-dk:#d9a414;
+  --crust:#55300f;
+  --card:#fffdf5;
+  --ink:#1b2530;
+  --red:#d3352a;
+  --milk:#f6f1e3;
+  --display:'Bagel Fat One','Arial Rounded MT Bold','Trebuchet MS',sans-serif;
+  --body:'Bricolage Grotesque','Avenir Next','Segoe UI',sans-serif;
+  --cw:clamp(48px,min(16.5vw,10.6vh),78px);
+  --ch:calc(var(--cw)*1.42);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background-color:var(--cloth);
+  background-image:
+    linear-gradient(90deg,rgba(255,255,255,.085) 50%,transparent 50%),
+    linear-gradient(rgba(255,255,255,.085) 50%,transparent 50%);
+  background-size:46px 46px;
+  color:var(--milk);font-family:var(--body);font-size:15px;line-height:1.35;
+  overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  -webkit-user-select:none;user-select:none;
+}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
+svg{display:block}
+[hidden]{display:none !important}
+#app{
+  height:100%;max-width:760px;margin:0 auto;display:flex;flex-direction:column;position:relative;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Kopf */
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 4px}
+.brand{display:flex;align-items:center;gap:8px;font:400 23px/1 var(--display);color:var(--butter);letter-spacing:.01em;text-shadow:0 2px 0 rgba(0,0,0,.28)}
+.brand svg{width:28px;height:28px}
+.tools{display:flex;gap:6px}
+.tools button{min-height:34px;padding:0 12px;border-radius:999px;background:rgba(10,22,40,.38);color:var(--milk);font-weight:650;font-size:13px;border:1px solid rgba(255,255,255,.14)}
+.tools button[aria-pressed="false"]{opacity:.55;text-decoration:line-through}
+
+/* Gegner */
+#opps{display:flex;gap:8px;padding:6px 16px 0;justify-content:center}
+.opp{position:relative;flex:1 1 0;max-width:220px;min-width:0;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center;padding:7px 9px;border-radius:14px;background:rgba(10,22,40,.34);border:2px solid transparent;transition:border-color .2s,background .2s}
+.opp.on{border-color:var(--butter);background:rgba(10,22,40,.55)}
+.av{grid-row:1/3;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:400 19px/1 var(--display);color:var(--crust);box-shadow:inset 0 -3px 0 rgba(0,0,0,.16)}
+.a1{background:#f0b94e}.a2{background:#f09a5e}.a3{background:#d9b58c}
+.oname{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between;gap:6px}
+.oname span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.oname b{font:400 15px/1 var(--display);color:var(--butter);font-variant-numeric:tabular-nums}
+.fan{display:flex;height:20px;padding-left:9px}
+.fan i{width:14px;height:20px;margin-left:-9px;border-radius:3px;background:var(--butter);border:1.5px solid var(--card);box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.fan i:nth-child(odd){background:var(--butter-dk)}
+.bub{position:absolute;left:50%;top:calc(100% - 6px);translate:-50% 0;z-index:30;white-space:nowrap;padding:5px 12px 6px;border-radius:10px;background:var(--butter);color:var(--crust);font:400 17px/1 var(--display);box-shadow:0 3px 0 var(--butter-dk),0 8px 16px rgba(0,0,0,.35);rotate:-3deg;animation:pop .28s cubic-bezier(.3,1.6,.5,1)}
+#meBub{position:absolute;right:18px;bottom:calc(var(--ch) + 96px);z-index:30}
+#meBub .bub{position:static;translate:none;display:block}
+
+/* Tisch */
+#table{flex:1 1 auto;min-height:calc(var(--ch) + 64px);display:grid;place-items:center;padding:14px 34px 16px 44px;position:relative}
+.board{
+  position:relative;width:100%;max-width:470px;display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;
+  padding:24px 16px 22px;border-radius:22px;
+  background:
+    repeating-linear-gradient(93deg,rgba(90,48,10,.10) 0 2px,transparent 2px 11px),
+    repeating-linear-gradient(88deg,rgba(255,235,200,.08) 0 3px,transparent 3px 17px),
+    linear-gradient(180deg,var(--board),#c88c4b);
+  box-shadow:0 5px 0 var(--board-dk),0 18px 30px rgba(5,14,30,.45),inset 0 2px 0 rgba(255,240,210,.35);
+}
+.board::before{content:'';position:absolute;left:-28px;top:50%;translate:0 -50%;width:30px;height:50px;border-radius:18px 0 0 18px;background:linear-gradient(180deg,var(--board),#c88c4b);box-shadow:0 5px 0 var(--board-dk)}
+.board::after{content:'';position:absolute;left:-19px;top:50%;translate:0 -50%;width:12px;height:12px;border-radius:50%;background:var(--cloth);box-shadow:inset 0 2px 2px rgba(0,0,0,.4)}
+.deck{position:relative;width:var(--cw);height:var(--ch);border-radius:calc(var(--cw)*.12);
+  background:
+    radial-gradient(circle at 50% 50%,var(--butter) 0 22%,transparent 23%),
+    repeating-linear-gradient(45deg,var(--butter-dk) 0 6px,#e9b62a 6px 12px);
+  border:3px solid var(--card);box-shadow:2px 2px 0 #e9dcc0,4px 4px 0 #d8c8a6,6px 9px 12px rgba(40,20,0,.4)}
+.deck b{position:absolute;inset:0;display:grid;place-items:center;font:400 calc(var(--cw)*.34)/1 var(--display);color:var(--crust);font-variant-numeric:tabular-nums}
+.deck small{position:absolute;left:50%;bottom:-17px;translate:-50% 0;font-size:10.5px;font-weight:700;color:var(--crust);white-space:nowrap;opacity:.8}
+.deck.can{animation:nudge 1.6s ease-in-out infinite}
+#pile{position:relative;height:calc(var(--ch) + 10px);min-width:0}
+.gilt{position:absolute;left:50%;translate:-50% 0;top:-16px;z-index:24;display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:var(--ink);color:var(--milk);font-size:12.5px;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,.35);white-space:nowrap}
+.gilt i{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--card);color:var(--ink)}
+.gilt i.red{color:var(--red)}
+.gilt svg{width:13px;height:13px}
+.pen{position:absolute;right:-18px;top:-16px;z-index:25;min-width:58px;height:58px;padding:0 8px;border-radius:50%;display:grid;place-content:center;text-align:center;background:var(--butter);color:var(--crust);rotate:9deg;box-shadow:0 3px 0 var(--butter-dk),0 8px 14px rgba(0,0,0,.35);animation:pop .3s cubic-bezier(.3,1.6,.5,1)}
+.pen b{font:400 24px/1 var(--display);font-variant-numeric:tabular-nums}
+.pen span{font-size:9.5px;font-weight:800;line-height:1.05;text-transform:uppercase;letter-spacing:.03em}
+.pen.me{background:var(--red);color:#fff;box-shadow:0 3px 0 #8f1d15,0 8px 14px rgba(0,0,0,.35)}
+
+/* Karten */
+.card{position:absolute;left:0;top:0;width:var(--cw);height:var(--ch);border-radius:calc(var(--cw)*.12);background:var(--card);color:var(--ink);border:1px solid rgba(20,30,50,.22);box-shadow:0 1px 0 rgba(0,0,0,.2),0 5px 12px rgba(8,16,34,.3);font-family:var(--body);overflow:hidden}
+.card.red{color:var(--red)}
+.card .ix{position:absolute;left:calc(var(--cw)*.075);top:calc(var(--cw)*.06);display:flex;flex-direction:column;align-items:center;gap:1px;width:calc(var(--cw)*.3)}
+.card .ix b{font-weight:800;font-size:calc(var(--cw)*.29);line-height:1;letter-spacing:-.04em}
+.card .ix svg{width:calc(var(--cw)*.2);height:calc(var(--cw)*.2)}
+.card .ix i{font-style:normal;font-size:calc(var(--cw)*.17);font-weight:800;line-height:1;margin-top:2px;padding:2px 3px;border-radius:4px;background:var(--ink);color:var(--card);white-space:nowrap}
+.card.red .ix i{background:var(--red)}
+.card .mid{position:absolute;inset:0;display:grid;place-items:center;padding-top:calc(var(--cw)*.2);padding-left:calc(var(--cw)*.16)}
+.card .mid svg{width:calc(var(--cw)*.44);height:calc(var(--cw)*.44)}
+.card .face{font:400 calc(var(--cw)*.6)/1 var(--display)}
+.card .fx{position:absolute;right:calc(var(--cw)*.08);bottom:calc(var(--cw)*.06);font-size:calc(var(--cw)*.15);font-weight:800;letter-spacing:.02em;text-transform:uppercase;opacity:.62}
+.card .tag{position:absolute;left:3px;right:3px;bottom:3px;display:flex;align-items:center;justify-content:center;gap:3px;padding:2px 0;border-radius:6px;background:var(--ink);color:var(--milk);font-size:calc(var(--cw)*.16);font-weight:800;white-space:nowrap}
+.card .tag svg{width:calc(var(--cw)*.17);height:calc(var(--cw)*.17)}
+.card .tag .r{color:#ff8d84}
+.pc{left:50%;top:50%;margin:calc(var(--ch)*-.5) 0 0 calc(var(--cw)*-.5);transition:transform .32s cubic-bezier(.2,.8,.3,1);animation:land .34s cubic-bezier(.2,.9,.3,1) backwards}
+
+/* Hand */
+#me{position:relative;padding:0 0 8px}
+#me.on::before{content:'';position:absolute;left:16px;right:16px;top:-2px;height:3px;border-radius:3px;background:var(--butter);box-shadow:0 0 14px var(--butter)}
+#status{min-height:44px;padding:4px 18px 6px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;text-align:center}
+#status .last{font-size:12.5px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#status .now{font-size:14.5px;font-weight:700;text-wrap:balance}
+#status .now.bad{color:#ffb3ab}
+#status .now.tip{color:var(--butter)}
+#combo{display:flex;gap:6px;justify-content:safe center;overflow-x:auto;scrollbar-width:none;min-height:0;padding:0 16px 4px}
+#combo::-webkit-scrollbar{display:none}
+#combo button{flex:none;white-space:nowrap}
+#combo button{padding:5px 11px;border-radius:999px;background:var(--butter);color:var(--crust);font-size:12.5px;font-weight:800;box-shadow:0 2px 0 var(--butter-dk)}
+#hand{height:calc(var(--ch) + 28px);overflow-x:auto;overflow-y:hidden;touch-action:pan-x;scrollbar-width:none;padding:0 12px}
+#hand::-webkit-scrollbar{display:none}
+#track{position:relative;height:100%;min-width:100%}
+.hc{transition:transform .22s cubic-bezier(.2,.8,.3,1),filter .2s,box-shadow .2s}
+.hc.new{animation:drawIn .38s cubic-bezier(.2,.9,.3,1)}
+.hc.dim{filter:brightness(.72) saturate(.7)}
+.hc.sel{box-shadow:0 0 0 3px var(--butter),0 10px 18px rgba(8,16,34,.45)}
+.hc.shake{animation:shake .3s}
+#actions{display:grid;grid-template-columns:auto auto 1fr 1.25fr;gap:8px;padding:6px 16px 4px}
+#actions button{min-height:48px;border-radius:14px;font-weight:800;font-size:15px;padding:0 14px;background:rgba(10,22,40,.5);color:var(--milk);border:1px solid rgba(255,255,255,.16);transition:opacity .15s,transform .08s}
+#actions button:active{transform:translateY(2px)}
+#actions button:disabled{opacity:.38}
+#actions #bPlay{background:var(--butter);color:var(--crust);border:0;box-shadow:0 4px 0 var(--butter-dk);font:400 19px/1 var(--display);letter-spacing:.02em}
+#actions #bPlay:disabled{box-shadow:0 4px 0 rgba(0,0,0,.2)}
+#actions #bDraw.pulse{animation:nudge .5s 2}
+#bSort{font-size:12.5px !important;line-height:1.05;padding:0 10px !important}
+
+/* Butter und Brot */
+#callZone{position:absolute;left:0;right:0;bottom:calc(var(--ch) + 104px);z-index:60;display:grid;place-items:center;pointer-events:none}
+#callZone[hidden]{display:none}
+.pat{pointer-events:auto;position:relative;padding:20px 44px 24px;border-radius:18px;background:linear-gradient(180deg,#ffe57a,var(--butter));color:var(--crust);font:400 40px/1 var(--display);rotate:-3deg;box-shadow:0 8px 0 var(--butter-dk),0 22px 34px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.55);animation:pop .25s cubic-bezier(.3,1.7,.5,1);overflow:hidden}
+.pat:active{translate:0 5px;box-shadow:0 3px 0 var(--butter-dk),0 10px 18px rgba(0,0,0,.4)}
+.pat.brot{background:linear-gradient(180deg,#e7b575,#cf9450);color:#fff7e6;box-shadow:0 8px 0 #8d5a25,0 22px 34px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.3)}
+.pat i{position:absolute;left:0;bottom:0;height:7px;width:100%;background:rgba(85,48,15,.55);transform-origin:left;animation:drain linear forwards}
+
+/* Blätter */
+#sheet{position:absolute;inset:0;z-index:100;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,18,34,.62);animation:fade .18s}
+#sheet[hidden]{display:none}
+.panel{width:100%;max-width:560px;max-height:92%;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--milk);color:var(--ink);border-radius:26px 26px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.4);animation:rise .28s cubic-bezier(.2,.9,.3,1);display:flex;flex-direction:column;gap:14px;-webkit-user-select:text;user-select:text}
+.panel h1{margin:0;font:400 44px/0.95 var(--display);color:var(--crust);text-wrap:balance}
+.panel h2{margin:0;font:400 26px/1.05 var(--display);color:var(--crust);text-wrap:balance}
+.panel h3{margin:6px 0 -6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a6a55}
+.panel p{margin:0;max-width:62ch}
+.panel .sub{color:#5a5248}
+.hero{display:flex;align-items:center;gap:14px}
+.hero svg{width:76px;height:76px;flex:none;rotate:-6deg;filter:drop-shadow(0 6px 8px rgba(60,30,0,.3))}
+.opt{display:grid;grid-template-columns:1fr;gap:6px}
+.opt>span{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a6a55}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;min-height:44px;border-radius:12px;background:#e9e1cd;font-weight:750;font-size:14px;color:var(--ink);border:2px solid transparent}
+.seg button[aria-pressed="true"]{background:var(--butter);color:var(--crust);border-color:var(--butter-dk)}
+.seg button:disabled{opacity:.35}
+.primary{min-height:54px;border-radius:16px;background:var(--butter);color:var(--crust);font:400 23px/1 var(--display);box-shadow:0 5px 0 var(--butter-dk)}
+.primary:active{translate:0 3px;box-shadow:0 2px 0 var(--butter-dk)}
+.ghost{min-height:46px;border-radius:14px;font-weight:750;color:var(--crust);background:transparent;border:2px solid #d8cdb4}
+.suits{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sbtn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px 9px;border-radius:14px;background:var(--card);border:2px solid #dcd2bb;color:var(--ink);font-weight:750;font-size:12.5px;box-shadow:0 3px 0 #dcd2bb}
+.sbtn.red{color:var(--red)}
+.sbtn svg{width:30px;height:30px}
+.sbtn small{font-size:10.5px;font-weight:700;color:#6b6257;text-align:center;line-height:1.1}
+.rows{display:flex;flex-direction:column;gap:8px}
+.rbtn{display:grid;gap:5px;text-align:left;padding:11px 13px;border-radius:14px;background:var(--card);border:2px solid #dcd2bb;box-shadow:0 3px 0 #dcd2bb;font-weight:750}
+.rbtn small{font-weight:650;color:#6b6257}
+.minis{display:flex;gap:3px;flex-wrap:wrap}
+.mini{display:inline-flex;align-items:center;gap:2px;padding:3px 6px;border-radius:6px;background:#f1ead8;border:1px solid #d9cfb8;font-weight:800;font-size:13px;color:var(--ink)}
+.mini.red{color:var(--red)}
+.mini svg{width:11px;height:11px}
+.mini.j{background:var(--ink);color:var(--milk);border-color:var(--ink)}
+.mini.j.red{color:#ff8d84}
+.tally{display:grid;gap:6px}
+.tally div{display:flex;justify-content:space-between;padding:9px 13px;border-radius:12px;background:#ece4d0;font-weight:750}
+.tally div.win{background:var(--butter);color:var(--crust)}
+.tally b{font-variant-numeric:tabular-nums}
+.rules{display:grid;gap:10px}
+.rules section{padding:13px 14px;border-radius:14px;background:#fffdf5;border:1px solid #e2d8c0;display:grid;gap:7px}
+.rules h4{margin:0;font:400 19px/1.1 var(--display);color:var(--crust)}
+.rules ul{margin:0;padding-left:18px;display:grid;gap:5px}
+.rules .k{display:inline-block;min-width:22px;padding:0 5px;border-radius:5px;background:var(--ink);color:var(--milk);font-weight:800;text-align:center}
+.loglist{display:grid;gap:4px;font-size:13.5px}
+.loglist div{padding:6px 10px;border-radius:9px;background:#ece4d0}
+.timer{height:6px;border-radius:3px;background:#d8cdb4;overflow:hidden}
+.timer i{display:block;height:100%;background:var(--red);transform-origin:left;animation:drain linear forwards}
+
+@keyframes pop{from{scale:.4;opacity:0}to{scale:1;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{translate:0 40px;opacity:0}to{translate:0 0;opacity:1}}
+@keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes land{from{translate:0 var(--fy,-130px);scale:1.25;opacity:0}to{translate:0 0;scale:1;opacity:1}}
+@keyframes drawIn{from{translate:0 -70px;scale:.7;opacity:0}to{translate:0 0;scale:1;opacity:1}}
+@keyframes shake{25%{translate:-5px 0}50%{translate:5px 0}75%{translate:-3px 0}}
+@keyframes nudge{0%,100%{translate:0 0}50%{translate:0 -4px}}
+@media (prefers-reduced-motion:reduce){
+  *:not(.tm),*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
+@media (max-width:380px){
+  .bar{padding:6px 12px 2px}.brand{font-size:20px}
+  #opps{padding:4px 10px 0;gap:6px}.opp{padding:6px 7px}.av{width:30px;height:30px;font-size:16px}
+  #actions{padding:6px 10px 4px;gap:6px}#actions button{padding:0 10px}
+}
+@media (max-height:620px){
+  #status{min-height:36px}.bar{padding-top:4px}#table{padding-top:10px;padding-bottom:14px}
+}
+
+/* Online */
+.primary.alt{background:var(--ink);color:var(--butter);box-shadow:0 5px 0 #05090f}
+.primary.alt:active{box-shadow:0 2px 0 #05090f}
+.panel input[type=text]{width:100%;min-height:48px;padding:0 14px;border-radius:12px;border:2px solid #d8cdb4;background:var(--card);color:var(--ink);font:650 17px/1 var(--body);-webkit-user-select:text;user-select:text}
+.panel input[type=text]:focus{outline:3px solid var(--butter);outline-offset:1px;border-color:var(--butter-dk)}
+.panel input[type=text]:disabled{opacity:.6}
+#lobbyState{display:grid;gap:8px;min-height:26px}
+#lobbyState .warn{color:#9a2118;font-weight:650}
+.peers{display:flex;flex-wrap:wrap;gap:6px}
+.peers span{padding:5px 11px;border-radius:999px;background:#ece4d0;font-weight:700;font-size:13px}
+.oname em{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--butter);margin-left:4px}
+#status .last.warn{opacity:1;color:#ffb3ab;font-weight:700}
+
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="su0" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21C5 16 2 12.3 2 8.4 2 5.4 4.2 3.5 6.8 3.5c2.1 0 4 1.2 5.2 3.2 1.2-2 3.1-3.2 5.2-3.2C19.8 3.5 22 5.400 22 8.4 22 12.3 19 16 12 21z"/></symbol>
+    <symbol id="su1" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.800C14.300 5.800 17 9.200 20.500 12 17 14.800 14.300 18.200 12 22.200 9.700 18.200 7 14.800 3.500 12 7 9.200 9.700 5.800 12 1.800z"/></symbol>
+    <symbol id="su2" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="12" cy="6.800" r="4.700"/><circle cx="6.500" cy="13.700" r="4.700"/><circle cx="17.500" cy="13.700" r="4.700"/><path d="M12 11c0 5.500-1.300 8.800-3.600 11h7.200C13.300 19.800 12 16.500 12 11z"/><circle cx="12" cy="12" r="2.600"/></g></symbol>
+    <symbol id="su3" viewBox="0 0 24 24"><path fill="currentColor" d="M12 1.800C9 6.600 2.500 9.900 2.500 14.700c0 2.700 2 4.600 4.500 4.600 1.700 0 3.100-.800 4.100-2.100-.2 2.200-1.100 3.700-2.600 4.800h7c-1.500-1.100-2.400-2.600-2.600-4.800 1 1.300 2.400 2.100 4.100 2.100 2.500 0 4.500-1.900 4.500-4.600C21.500 9.900 15 6.600 12 1.800z"/></symbol>
+  </defs>
+</svg>
+<template id="logoTpl"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M13 23C6 21 5 9 17 7c7-4 23-4 30 0 12 2 11 14 4 16v29a6 6 0 0 1-6 6H19a6 6 0 0 1-6-6z" fill="#a86f35"/><path d="M18 25c-6-2-6-11 3-13 6-3 16-3 22 0 9 2 9 11 3 13v25a3 3 0 0 1-3 3H21a3 3 0 0 1-3-3z" fill="#f4dcab"/><rect x="23" y="27" width="19" height="14" rx="3.500" fill="#ffd84d" transform="rotate(-9 32 34)"/><rect x="23" y="27" width="19" height="4" rx="2" fill="#ffe98f" transform="rotate(-9 32 34)"/></svg></template>
+<template id="rulesTpl">
+<h2>So geht Butterbrot</h2>
+<div class="rules">
+  <section><h4>Ziel und Karten</h4><ul>
+    <li>36 Karten: 6 bis Ass in Herz, Karo, Kreuz und Schaufel.</li>
+    <li>Alle starten mit mindestens 7 Karten. Wer zuerst keine mehr hat, gewinnt die Runde.</li></ul></section>
+  <section><h4>Dein Zug</h4><ul>
+    <li>Lege eine Karte, die im Symbol oder im Wert zur obersten passt. Herz auf Herz, König auf König.</li>
+    <li>Oder ziehe eine Karte. Das darfst du immer, auch wenn du legen könntest. So sparst du Karten für Strassen und Bomben.</li></ul></section>
+  <section><h4>Butter und Brot</h4><ul>
+    <li>Legst du deine zweitletzte Karte, rufst du Butter. Legst du die letzte, rufst du Brot.</li>
+    <li>Vergessen kostet 2 Karten. In der App hast du dafür dreieinhalb Sekunden.</li></ul></section>
+  <section><h4>Sonderkarten</h4><ul>
+    <li><span class="k">6</span> Die nächste Person zieht 1. Legt sie selbst eine 6, wandert die Strafe weiter und wächst um 1.</li>
+    <li><span class="k">7</span> Die nächste Person zieht 2. Jede weitere 7 legt 2 drauf.</li>
+    <li>7 auf 6 oder 6 auf 7 im gleichen Symbol geht auch. Dann ziehst du die alte Strafe und für die nächste Person beginnt eine neue Kette.</li>
+    <li><span class="k">8</span> Muss gedeckt werden: Du bist sofort nochmal dran. Kannst du nicht decken, ziehst du 1.</li>
+    <li><span class="k">J</span> Der Bube passt immer und du wünschst ein Symbol. In einer laufenden Kette darf er als 6 oder 7 mitspielen, aber nur in einem Symbol, das in dieser Kette noch nicht lag. So sind bis zu 14 Strafkarten möglich. Auf einer 8 darf er eine 8 in einem anderen Symbol sein.</li>
+    <li><span class="k">A</span> Passt das Ass im Symbol, darfst du die Karte direkt darunter aufnehmen. Ein Ass nimmt kein Ass. Unter Strafe zählt die aufgenommene Karte als eine gezogene.</li></ul></section>
+  <section><h4>Strassen</h4><ul>
+    <li>Mindestens 5 Karten in Folge im gleichen Symbol, in einem Zug gelegt. Aufwärts oder abwärts, du entscheidest, welche Karte oben liegt.</li>
+    <li>Nach dem Ass geht es mit der 6 weiter: Dame, König, Ass, 6, 7 ist eine Strasse.</li>
+    <li>Ein Bube pro Strasse darf eine Lücke füllen.</li>
+    <li>6er und 7er in der Strasse zählen. Liegen sie nicht zuoberst, sind sie vergraben: Die nächste Person muss sie ziehen und kann sie nicht weitergeben.</li>
+    <li>Endet die Strasse auf einer 8, deckst du sie, gern gleich mit der nächsten Strasse.</li></ul></section>
+  <section><h4>Bomben</h4><ul>
+    <li>Vier gleiche Karten, oder drei gleiche plus ein Bube.</li>
+    <li>Passt auf alles. Die ganze offene Strafe wandert zur nächsten Person, plus 2 obendrauf.</li>
+    <li>6er Bombe: 3 Karten. 7er Bombe: 4 Karten. Die 8er Bombe musst du decken, mit der Ass Bombe darfst du die Karte darunter aufnehmen.</li>
+    <li>Die oberste Karte der Bombe bestimmt das Symbol.</li>
+    <li>Legt jemand die zweitletzte Karte als 8 und will ausmachen, hält nur noch eine Bombe das auf. Die App fragt dich in dem Moment.</li></ul></section>
+  <section><h4>Der Trick</h4><ul>
+    <li>Herz 8, Bube als Schaufel 8, Schaufel Ass, Bube wieder aufnehmen. Symbol gewechselt, Bube behalten.</li></ul></section>
+  <section><h4>Online 1:1</h4><ul>
+    <li>Tippe im Menü auf Online 1:1 und gib dir einen Namen. Wer die Seite gleichzeitig offen hat und auch sucht, wird dein Gegner.</li>
+    <li>Gespielt wird mit 7 Karten. Butter und Brot ruft ihr beide selbst.</li>
+    <li>Geht jemand oder reisst die Verbindung länger ab, endet das Spiel.</li></ul></section>
+  <section><h4>So entscheidet die App Grenzfälle</h4><ul>
+    <li>Unter Strafe gilt: erst legen, dann ziehen. Wer nur zieht, hat den Zug damit beendet.</li>
+    <li>Die Startkarte hat keinen Effekt.</li>
+    <li>Mit einer 8 als letzter Karte kannst du nicht ausmachen, sie will gedeckt werden.</li>
+    <li>Nach einer Bombe dazwischen geht es bei der Person weiter, die sie geworfen hat.</li>
+    <li>Ist der Stapel leer, wird die Ablage neu gemischt.</li></ul></section>
+</div>
+</template>
+<div id="app">
+  <header class="bar">
+    <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M13 23C6 21 5 9 17 7c7-4 23-4 30 0 12 2 11 14 4 16v29a6 6 0 0 1-6 6H19a6 6 0 0 1-6-6z" fill="#a86f35"/><path d="M18 25c-6-2-6-11 3-13 6-3 16-3 22 0 9 2 9 11 3 13v25a3 3 0 0 1-3 3H21a3 3 0 0 1-3-3z" fill="#f4dcab"/><rect x="23" y="27" width="19" height="14" rx="3.500" fill="#ffd84d" transform="rotate(-9 32 34)"/></svg>Butterbrot</div>
+    <div class="tools">
+      <button type="button" id="bRules">Regeln</button>
+      <button type="button" id="bSound" aria-pressed="true">Ton</button>
+      <button type="button" id="bMenu">Neu</button>
+    </div>
+  </header>
+  <section id="opps" aria-label="Gegner"></section>
+  <section id="table" aria-label="Tisch">
+    <div class="board">
+      <button type="button" class="deck" id="deck" aria-label="Karte ziehen"><b id="deckN">0</b><small>Stapel</small></button>
+      <div id="pile" aria-label="Ablage"></div>
+      <div class="pen" id="pen" hidden></div>
+      <div class="gilt" id="gilt"></div>
+    </div>
+  </section>
+  <div id="meBub"></div>
+  <div id="callZone" hidden></div>
+  <section id="me" aria-label="Deine Hand">
+    <div id="status" role="status" aria-live="polite" tabindex="0" aria-label="Spielstand, antippen für den Verlauf"><div class="last" id="last"></div><div class="now" id="now"></div></div>
+    <div id="combo"></div>
+    <div id="hand"><div id="track"></div></div>
+    <div id="actions">
+      <button type="button" id="bSort">nach<br>Symbol</button>
+      <button type="button" id="bTip">Tipp</button>
+      <button type="button" id="bDraw">Ziehen</button>
+      <button type="button" id="bPlay">Legen</button>
+    </div>
+  </section>
+  <div id="sheet" hidden></div>
+</div>
+<script>
+var BB=(function(){
+/* ===== Butterbrot Spiellogik ===== */
+const R6 = 0, R7 = 1, R8 = 2, R9 = 3, R10 = 4, RJ = 5, RQ = 6, RK = 7, RA = 8;
+const cs = id => (id / 9) | 0;          // Symbol 0 Herz, 1 Karo, 2 Kreuz, 3 Schaufel
+const cr = id => id % 9;                // Wert 0..8 = 6,7,8,9,10,B,D,K,A
+const cid = (s, r) => s * 9 + r;
+const val = r => (r === R6 ? 1 : r === R7 ? 2 : 0);
+const zp = () => ({ b: 0, c: 0, r: -1, suits: [] });   // b vergraben, c Kette, r Kettenwert
+const top = S => S.pile[S.pile.length - 1];
+
+function shuffle(a, rnd = Math.random) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (rnd() * (i + 1)) | 0;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function newGame(n, handSize, starter = 0, rnd = Math.random) {
+  const deck = shuffle([...Array(36).keys()], rnd);
+  const hands = [];
+  for (let p = 0; p < n; p++) hands.push(deck.splice(0, handSize));
+  let i = deck.findIndex(id => [R9, R10, RQ, RK].includes(cr(id)));
+  if (i < 0) i = 0;
+  const st = deck.splice(i, 1)[0];
+  return {
+    n, hands, draw: deck, pile: [{ id: st, r: cr(st), s: cs(st) }],
+    turn: starter % n, pend: zp(), out: zp(), owed: 0, seg: 0, cover: false,
+    over: false, winner: -1, shuffles: 0
+  };
+}
+
+function drawCards(S, p, k, rnd = Math.random) {
+  const got = [];
+  for (let i = 0; i < k; i++) {
+    if (!S.draw.length) {
+      if (S.pile.length <= 1) break;
+      const keep = S.pile.pop();
+      S.draw = shuffle(S.pile.map(c => c.id), rnd);
+      S.pile = [keep];
+      S.shuffles++;
+    }
+    const id = S.draw.pop();
+    S.hands[p].push(id);
+    got.push(id);
+  }
+  return got;
+}
+
+const mk = (kind, cards, extra) => Object.assign({ kind, cards, pickup: false }, extra || {});
+
+function bombMoves(S, hand, full) {
+  const T = top(S), moves = [];
+  const jacks = hand.filter(id => cr(id) === RJ);
+  for (let r = 0; r < 9; r++) {
+    const own = hand.filter(id => cr(id) === r);
+    const sets = [];
+    if (own.length === 4) sets.push(own.map(id => ({ id, r, s: cs(id) })));
+    else if (own.length === 3 && r !== RJ && jacks.length) {
+      const missS = [0, 1, 2, 3].find(x => !own.some(id => cs(id) === x));
+      for (const j of (full ? jacks : [jacks[0]]))
+        sets.push([...own.map(id => ({ id, r, s: cs(id) })), { id: j, r, s: missS }]);
+    }
+    for (const set of sets) for (let t = 0; t < 4; t++) {
+      const seq = [...set.filter(c => c.s !== t), set.find(c => c.s === t)];
+      moves.push(mk('bomb', seq));
+      if (r === RA && T.r !== RA) moves.push(mk('bomb', seq, { pickup: true }));
+    }
+  }
+  return moves;
+}
+
+function genMoves(S, hand, full) {
+  const T = top(S), moves = [];
+  const jacks = hand.filter(id => cr(id) === RJ);
+  const chainOn = S.seg === 0 && S.pend.c > 0;
+  for (const id of hand) {
+    const r = cr(id), s = cs(id);
+    if (r === RJ) {
+      for (let w = 0; w < 4; w++) moves.push(mk('single', [{ id, r: RJ, s: w }], { jack: 'wish' }));
+      if (chainOn) for (let w = 0; w < 4; w++)
+        if (!S.pend.suits.includes(w)) moves.push(mk('single', [{ id, r: S.pend.r, s: w }], { jack: 'chain' }));
+      if (T.r === R8) for (let w = 0; w < 4; w++)
+        if (w !== T.s) moves.push(mk('single', [{ id, r: R8, s: w }], { jack: 'eight' }));
+    } else if (s === T.s || r === T.r) {
+      moves.push(mk('single', [{ id, r, s }]));
+      if (r === RA && T.r !== RA && s === T.s) moves.push(mk('single', [{ id, r, s }], { pickup: true }));
+    }
+  }
+  // Strassen
+  for (let s = 0; s < 4; s++) {
+    const have = new Array(9).fill(false);
+    let cnt = 0;
+    for (const id of hand) if (cs(id) === s) { have[cr(id)] = true; cnt++; }
+    if (cnt + (jacks.length ? 1 : 0) < 5) continue;
+    for (let L = 5; L <= 9; L++) for (let p = 0; p < 9; p++) {
+      const pos = [];
+      let miss = -1, nm = 0;
+      for (let k = 0; k < L; k++) {
+        const r = (p + k) % 9;
+        pos.push(r);
+        if (!have[r]) { nm++; miss = r; }
+      }
+      if (nm > 1) continue;
+      let wilds = [null];
+      if (nm === 1) {
+        const cand = jacks.filter(j => !(cs(j) === s && pos.includes(RJ)));
+        if (!cand.length) continue;
+        wilds = full ? cand : [cand[0]];
+      }
+      for (const w of wilds) {
+        const cards = pos.map(r => (r === miss ? { id: w, r, s } : { id: cid(s, r), r, s }));
+        for (let dir = 0; dir < 2; dir++) {
+          const seq = dir ? cards.slice().reverse() : cards;
+          const f = seq[0];
+          if (s === T.s || f.r === T.r || cr(f.id) === RJ) moves.push(mk('street', seq));
+        }
+      }
+    }
+  }
+  for (const m of bombMoves(S, hand, full)) moves.push(m);
+  return moves;
+}
+
+function applyPlay(S, mv) {
+  const p = S.turn, hand = S.hands[p];
+  for (const c of mv.cards) {
+    const i = hand.indexOf(c.id);
+    if (i < 0) throw new Error('Karte nicht auf der Hand');
+    hand.splice(i, 1);
+  }
+  const n = mv.cards.length, f = mv.cards[0], l = mv.cards[n - 1];
+  if (mv.kind === 'bomb') {
+    const inc = S.seg === 0 ? S.pend.b + S.pend.c : 0;
+    S.out.b = S.out.b + S.out.c + inc + S.owed + 2 + val(l.r);
+    S.out.c = 0; S.out.r = -1; S.out.suits = []; S.owed = 0;
+  } else {
+    let pass = 0;
+    if (S.seg === 0) {
+      const P = S.pend.b + S.pend.c;
+      if (S.pend.c > 0 && f.r === S.pend.r) pass = S.pend.c;
+      S.owed = P - pass;
+    }
+    let sum = 0;
+    for (const c of mv.cards) sum += val(c.r);
+    const chain = val(l.r) + (n === 1 ? pass : 0);
+    S.out.b += S.out.c + pass + sum - chain;
+    S.out.c = chain;
+    S.out.r = chain > 0 ? l.r : -1;
+    S.out.suits = chain > 0 ? (n === 1 && pass > 0 ? S.pend.suits.concat([l.s]) : [l.s]) : [];
+  }
+  for (const c of mv.cards) S.pile.push({ id: c.id, r: c.r, s: c.s });
+  let picked = null;
+  if (mv.pickup) {
+    const idx = S.pile.length - n - 1;
+    if (idx >= 0) {
+      picked = S.pile.splice(idx, 1)[0];
+      hand.push(picked.id);
+      if (S.owed > 0) S.owed--;
+    }
+  }
+  S.seg++;
+  S.cover = l.r === R8;
+  return { picked, cont: S.cover };
+}
+
+function endTurn(S, rnd) {
+  const p = S.turn;
+  const drawn = S.owed > 0 ? drawCards(S, p, S.owed, rnd) : [];
+  S.pend = S.out; S.out = zp(); S.owed = 0; S.seg = 0; S.cover = false;
+  if (S.hands[p].length === 0) { S.over = true; S.winner = p; }
+  S.turn = (p + 1) % S.n;
+  return drawn;
+}
+
+function applyDraw(S, rnd) {
+  if (S.cover) S.owed += 1;
+  else if (S.seg === 0) {
+    const P = S.pend.b + S.pend.c;
+    S.owed = P > 0 ? P : 1;
+    S.out = zp();
+  }
+  return endTurn(S, rnd);
+}
+
+/* Bombe dazwischen: p wollte nach einer 8 ausmachen, q wirft eine Bombe */
+function applyInterrupt(S, q, mv) {
+  S.pend = { b: S.out.b + S.out.c + S.owed, c: 0, r: -1, suits: [] };
+  S.out = zp(); S.owed = 0; S.seg = 0; S.cover = false; S.turn = q;
+  return applyPlay(S, mv);
+}
+
+function cloneState(S) {
+  return {
+    n: S.n, hands: S.hands.map(h => h.slice()), draw: S.draw, pile: S.pile.slice(-10),
+    turn: S.turn, pend: { b: S.pend.b, c: S.pend.c, r: S.pend.r, suits: S.pend.suits.slice() },
+    out: { b: S.out.b, c: S.out.c, r: S.out.r, suits: S.out.suits.slice() },
+    owed: S.owed, seg: S.seg, cover: S.cover, over: false, winner: -1, shuffles: 0
+  };
+}
+
+/* Vorschau: was bewirkt ein Zug */
+function preview(S, mv) {
+  const Z = cloneState(S);
+  const r = applyPlay(Z, mv);
+  return { owed: Z.owed, pen: Z.out.b + Z.out.c, chain: Z.out.c, cont: r.cont, left: Z.hands[Z.turn].length };
+}
+
+function potential(hand) {
+  let sc = 0, j = 0;
+  const cnt = new Array(9).fill(0);
+  for (const id of hand) { cnt[cr(id)]++; if (cr(id) === RJ) j++; }
+  for (let r = 0; r < 9; r++) {
+    if (r === RJ) continue;
+    if (cnt[r] === 4) sc += 14; else if (cnt[r] === 3) sc += j ? 10 : 4;
+  }
+  for (let s = 0; s < 4; s++) {
+    let best = 0;
+    for (let p = 0; p < 9; p++) {
+      let L = 0;
+      while (L < 9 && hand.includes(cid(s, (p + L) % 9))) L++;
+      if (L > best) best = L;
+    }
+    if (best >= 5) sc += 16; else if (best === 4) sc += j ? 12 : 5; else if (best === 3) sc += 1.5;
+  }
+  return sc;
+}
+
+/* Computergegner: sucht den besten ganzen Zug, level 0 gemütlich, 1 normal, 2 gerissen */
+function botPlan(S, level, rnd = Math.random) {
+  const p = S.turn;
+  const noise = level === 0 ? 26 : level === 1 ? 6 : 0;
+  let best = { score: -Infinity, seq: [] };
+  let nodes = 0;
+  let minOpp = 99;
+  for (let q = 0; q < S.n; q++) if (q !== p) minOpp = Math.min(minOpp, S.hands[q].length);
+
+  function scoreEnd(Z, seq, byDraw) {
+    const hand = Z.hands[p];
+    let owed = Z.owed, out = Z.out;
+    if (byDraw) {
+      if (Z.cover) owed += 1;
+      else { const P = Z.pend.b + Z.pend.c; owed = P > 0 ? P : 1; out = zp(); }
+    }
+    const after = hand.length + owed;
+    let sc;
+    if (after === 0) sc = 100000 - seq.length;
+    else {
+      sc = -after * 10;
+      const nh = Z.hands[(p + 1) % Z.n].length;
+      const pen = out.b + out.c;
+      sc += pen * (3 + Math.max(0, 4 - nh) * 3) + out.b * 0.8;
+      let jk = 0;
+      for (const id of hand) if (cr(id) === RJ) jk++;
+      sc += jk * (level === 2 && minOpp <= 2 ? 4 : 7);
+      sc += potential(hand);
+      if (after === 1 && owed === 0 && cr(hand[0]) === RJ) sc += 12;
+      const T = top(Z);
+      let match = 0;
+      for (const id of hand) if (cs(id) === T.s && cr(id) !== RJ) match++;
+      sc += Math.min(match, 3) * 1.5;
+    }
+    if (noise) sc += (rnd() - 0.5) * 2 * noise;
+    if (sc > best.score) best = { score: sc, seq };
+  }
+
+  function rec(Z, seq, depth) {
+    scoreEnd(Z, seq, true);
+    if (depth >= 7) return;
+    const moves = genMoves(Z, Z.hands[p], false);
+    moves.sort((a, b) => b.cards.length - a.cards.length);
+    for (const mv of moves) {
+      if (++nodes > 3500) return;
+      const Y = cloneState(Z);
+      const r = applyPlay(Y, mv);
+      const s2 = seq.concat([mv]);
+      if (r.cont) {
+        if (Y.hands[p].length === 0) scoreEnd(Y, s2, true);
+        else rec(Y, s2, depth + 1);
+      } else scoreEnd(Y, s2, false);
+    }
+  }
+  rec(cloneState(S), [], 0);
+  return best;
+}
+
+function botInterrupt(S, q, level, rnd = Math.random) {
+  const hand = S.hands[q];
+  const bombs = bombMoves(S, hand, false).filter(m => !m.pickup);
+  if (!bombs.length) return null;
+  if (level === 0 && rnd() < 0.4) return null;
+  let best = null, bs = -1;
+  for (const m of bombs) {
+    const ids = m.cards.map(c => c.id);
+    const t = m.cards[3].s;
+    let sc = 0;
+    for (const id of hand) if (!ids.includes(id) && cs(id) === t) sc++;
+    if (m.cards[3].r === R8) sc -= 2;
+    if (sc > bs) { bs = sc; best = m; }
+  }
+  return best;
+}
+
+const BB = {
+  R6, R7, R8, R9, R10, RJ, RQ, RK, RA, cs, cr, cid, val, zp, top, shuffle, newGame, drawCards,
+  bombMoves, genMoves, applyPlay, endTurn, applyDraw, applyInterrupt, cloneState, preview, botPlan, botInterrupt
+};
+if (typeof module !== 'undefined') module.exports = BB;
+
+return BB;})();
+/* ===== Butterbrot Oberfläche und Online 1:1 ===== */
+(function () {
+  const { RJ, cs, cr, top, newGame, drawCards, genMoves, bombMoves, applyPlay, endTurn,
+    applyDraw, applyInterrupt, preview, botPlan, botInterrupt } = BB;
+
+  /* Online Einstellungen: öffentliche Vermittler ohne Konto. Für einen eigenen Server nur diese Zeilen ändern. */
+  const NET = {
+    brokers: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'],
+    ns: 'butterbrot-1x1-v1',
+    lib: 'https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js'
+  };
+  if (window.__BB_NET) Object.assign(NET, window.__BB_NET);
+
+  const RL = ['6', '7', '8', '9', '10', 'J', 'D', 'K', 'A'];
+  const RN = ['6', '7', '8', '9', '10', 'Bube', 'Dame', 'König', 'Ass'];
+  const BN = ['6er', '7er', '8er', '9er', '10er', 'Buben', 'Damen', 'Königs', 'Ass'];
+  const SN = ['Herz', 'Karo', 'Kreuz', 'Schaufel'];
+  const BOTS = ['Du', 'Zopf', 'Gipfeli', 'Bürli'];
+  const FX = { 0: '+1', 1: '+2', 2: 'nochmal', 5: 'Joker', 8: 'nimm' };
+  const FXS = { 0: '+1', 1: '+2', 2: '↻', 5: '★', 8: '↑' };
+  const FORGET = [0.12, 0.06, 0.02];
+  const CANCEL = { cancel: true };
+  const $ = s => document.querySelector(s);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const cleanName = t => String(t == null ? '' : t).replace(/[<>&"\n\r]/g, '').trim().slice(0, 14);
+
+  const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v && typeof v === 'object' ? Object.assign({}, d, v) : d; } catch (e) { return d; } };
+  const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { } };
+
+  const cfg = load('bb_cfg', { opp: 2, hand: 7, level: 1, calls: 'manual', sound: true, sort: 'suit', name: '' });
+  let tally = load('bb_tally', { w: [0, 0, 0, 0] });
+  if (!Array.isArray(tally.w) || tally.w.length !== 4) tally = { w: [0, 0, 0, 0] };
+  let G = null, gid = 0, roundSP = 0;
+  const ui = { sel: new Set(), waiting: null, moves: [], usable: new Set(), last: '', now: '', tip: null, bubble: {}, sheetClose: null, sheetTag: '', shuffles: 0 };
+  const net = { state: 'off', id: Math.random().toString(36).slice(2, 10), name: '', client: null, peers: new Map(), peerId: null, peerName: '', room: '', role: null, tally: [0, 0], round: 0, lastPeer: 0, skip: {}, tick: 0, invTo: 0, beat: 0 };
+  const TOP = { lobby: () => NET.ns + '/lobby', user: id => NET.ns + '/u/' + id };
+
+  const pname = p => G.names[p];
+  const isRemote = p => !!(G && G.online && G.role === 'host' && p === 1);
+
+  /* ---------- Karten zeichnen ---------- */
+  const suitSvg = s => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#su${s}"/></svg>`;
+  const isRed = s => s < 2;
+  const cardName = id => SN[cs(id)] + ' ' + RN[cr(id)];
+  const asName = c => SN[c.s] + ' ' + RN[c.r];
+  function cardInner(id) {
+    const r = cr(id), s = cs(id);
+    const mid = (r === RJ || r === 6 || r === 7) ? `<span class="face">${RL[r]}</span>` : suitSvg(s);
+    return `<span class="ix"><b>${RL[r]}</b>${suitSvg(s)}${FXS[r] ? `<i>${FXS[r]}</i>` : ''}</span><span class="mid">${mid}</span>` + (FX[r] ? `<span class="fx">${FX[r]}</span>` : '');
+  }
+  const mini = c => {
+    const j = cr(c.id) === RJ && (c.r !== RJ || c.s !== cs(c.id));
+    return `<span class="mini${isRed(c.s) ? ' red' : ''}${j ? ' j' : ''}">${suitSvg(c.s)}${RL[c.r]}</span>`;
+  };
+  let probe = null;
+  function cardW() {
+    if (!probe) { probe = document.createElement('div'); probe.style.cssText = 'position:absolute;visibility:hidden;width:var(--cw);height:1px;left:-999px'; document.body.appendChild(probe); }
+    return probe.offsetWidth || 60;
+  }
+
+  /* ---------- Ton ---------- */
+  let ac = null;
+  function tone(f0, f1, dur, type, vol, when) {
+    const t = ac.currentTime + (when || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.08, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function sfx(kind, localOnly) {
+    if (!localOnly && G && G.rem) G.rem.sfx = { n: G.rem.sfx.n + 1, k: kind === 'win' ? 'lose' : kind === 'lose' ? 'win' : kind };
+    if (!cfg.sound) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === 'suspended') ac.resume();
+      if (kind === 'play') tone(620, 300, 0.07, 'triangle', 0.09);
+      else if (kind === 'draw') tone(260, 190, 0.06, 'sine', 0.07);
+      else if (kind === 'bomb') { tone(150, 38, 0.45, 'sawtooth', 0.13); tone(90, 30, 0.5, 'square', 0.06, 0.03); }
+      else if (kind === 'butter') { tone(660, 660, 0.09, 'triangle', 0.09); tone(880, 880, 0.14, 'triangle', 0.09, 0.1); }
+      else if (kind === 'brot' || kind === 'win') [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.16, 'triangle', 0.09, i * 0.1));
+      else if (kind === 'lose') [392, 330, 262].forEach((f, i) => tone(f, f, 0.2, 'sine', 0.08, i * 0.14));
+      else if (kind === 'err') tone(170, 120, 0.16, 'square', 0.05);
+    } catch (e) { }
+  }
+  const buzz = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { } };
+
+  /* ---------- Texte (v = wer liest: 0 hier, 1 die Person am anderen Gerät) ---------- */
+  const nextOf = p => (p + 1) % G.S.n;
+  const who = p => (p === 0 ? 'dich' : pname(p));
+  function say(f) {
+    const t0 = typeof f === 'function' ? f(0) : f;
+    ui.last = t0; G.log.push(t0); if (G.log.length > 60) G.log.shift();
+    if (G.rem) { const t1 = typeof f === 'function' ? f(1) : f; G.rem.last = t1; G.rem.log.push(t1); if (G.rem.log.length > 40) G.rem.log.shift(); }
+  }
+  function gilt() { const T = top(G.S); return `Es gilt ${SN[T.s]}${T.r !== RJ ? ' oder ' + RN[T.r] : ''}.`; }
+  function turnText() {
+    const S = G.S;
+    if (S.cover) return 'Die 8 will gedeckt werden. Du bist nochmal dran.' + (S.owed ? ` Danach ziehst du noch ${S.owed}.` : '');
+    const P = S.pend.b + S.pend.c;
+    if (!P) return 'Du bist dran. ' + gilt();
+    const jack = S.pend.suits.length < 4 ? ' oder ein Bube' : '';
+    if (S.pend.c && !S.pend.b) return `${P} Strafkarten für dich. Eine ${RL[S.pend.r]}${jack} gibt sie weiter.`;
+    if (S.pend.c) return `${P} Strafkarten für dich, ${S.pend.b} davon vergraben. Eine ${RL[S.pend.r]} gibt ${S.pend.c} weiter.`;
+    return `${P} vergrabene Strafkarten für dich. Nur eine Bombe gibt sie weiter.`;
+  }
+  function effect(mv) {
+    let pv;
+    try { pv = preview(G.S, mv); } catch (e) { return ''; }
+    const parts = [];
+    if (pv.owed > 0) parts.push(`du ziehst ${pv.owed}`);
+    if (pv.pen > 0) parts.push(`+${pv.pen} für ${who(nextOf(G.S.turn))}`);
+    if (pv.cont) parts.push('nochmal dran');
+    return parts.join(', ');
+  }
+  function moveText(p, mv, r, v) {
+    const me = p === v, N = pname(p), c = mv.cards, l = c[c.length - 1];
+    const pick = r && r.picked ? ` und ${me ? 'nimmst' : 'nimmt'} ${cardName(r.picked.id)} auf` : '';
+    if (mv.kind === 'bomb') return `${me ? 'Du zündest' : N + ' zündet'} eine ${BN[l.r]} Bombe${pick}. Oben liegt ${SN[l.s]}.`;
+    if (mv.kind === 'street') return `${me ? 'Du legst' : N + ' legt'} eine Strasse mit ${c.length} Karten: ${asName(c[0])} bis ${RN[l.r]}.`;
+    const verb = me ? 'Du legst' : N + ' legt';
+    if (mv.jack === 'wish') return `${verb} einen Buben und ${me ? 'wünschst' : 'wünscht'} ${SN[l.s]}.`;
+    if (mv.jack) return `${verb} einen Buben als ${asName(l)}.`;
+    return `${verb} ${cardName(l.id)}${pick}.`;
+  }
+  function optionText(mv) {
+    const c = mv.cards, l = c[c.length - 1];
+    if (mv.kind === 'bomb') return `${BN[l.r]} Bombe, oben ${SN[l.s]}`;
+    if (mv.kind === 'street') return `Strasse mit ${c.length} Karten, oben ${asName(l)}`;
+    if (mv.jack === 'wish') return `Bube, Wunsch ${SN[l.s]}`;
+    if (mv.jack) return `Bube als ${asName(l)}`;
+    return cardName(l.id) + (mv.pickup ? ' und Karte aufnehmen' : '');
+  }
+
+  /* ---------- Zeichnen ---------- */
+  const handEls = new Map(), pileEls = new Map();
+  const SUIT_ORDER = [0, 3, 1, 2];
+  function sortHand(ids) {
+    const a = ids.slice();
+    if (cfg.sort === 'rank') a.sort((x, y) => cr(x) - cr(y) || SUIT_ORDER.indexOf(cs(x)) - SUIT_ORDER.indexOf(cs(y)));
+    else a.sort((x, y) => SUIT_ORDER.indexOf(cs(x)) - SUIT_ORDER.indexOf(cs(y)) || cr(x) - cr(y));
+    return a;
+  }
+  function renderHand() {
+    const S = G.S, box = $('#hand'), track = $('#track');
+    const ids = sortHand(S.hands[0]), n = ids.length, cw = cardW();
+    const W = box.clientWidth - 24;
+    let stepX = n > 1 ? Math.min(cw * 0.82, (W - cw) / (n - 1)) : 0;
+    const minStep = Math.max(25, cw * 0.4);
+    let inner = W;
+    if (n > 1 && stepX < minStep) { stepX = minStep; inner = cw + stepX * (n - 1); }
+    const x0 = Math.max(0, (inner - (cw + stepX * (n - 1))) / 2);
+    track.style.width = inner + 'px';
+    for (const [id, e] of handEls) if (!ids.includes(id)) { e.remove(); handEls.delete(id); }
+    ids.forEach((id, i) => {
+      let e = handEls.get(id);
+      if (!e) {
+        e = document.createElement('button');
+        e.type = 'button';
+        e.className = 'card hc new' + (isRed(cs(id)) ? ' red' : '');
+        e.innerHTML = cardInner(id);
+        e.setAttribute('aria-label', cardName(id));
+        e.addEventListener('click', () => tapCard(id));
+        track.appendChild(e);
+        handEls.set(id, e);
+        setTimeout(() => e.classList.remove('new'), 420);
+      }
+      const sel = ui.sel.has(id);
+      e.style.transform = `translate(${x0 + i * stepX}px,${sel ? 2 : 22}px)`;
+      e.style.zIndex = i + 1;
+      e.classList.toggle('sel', sel);
+      e.classList.toggle('dim', !!ui.waiting && !ui.usable.has(id));
+      e.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    });
+  }
+  function renderOpps() {
+    const S = G.S;
+    let h = '';
+    for (let p = 1; p < S.n; p++) {
+      const n = S.hands[p].length, backs = Math.min(n, 9), nm = pname(p) || '?';
+      h += `<div class="opp${S.turn === p && !S.over && G.started ? ' on' : ''}">
+        <div class="av a${p}">${esc(nm[0].toUpperCase())}</div>
+        <div class="oname"><span>${esc(nm)}${G.online ? ' <em>online</em>' : ''}</span><b>${n}</b></div>
+        <div class="fan">${'<i></i>'.repeat(backs)}</div>
+        ${ui.bubble[p] ? `<div class="bub">${esc(ui.bubble[p])}</div>` : ''}
+      </div>`;
+    }
+    $('#opps').innerHTML = h;
+    $('#meBub').innerHTML = ui.bubble[0] ? `<div class="bub">${esc(ui.bubble[0])}</div>` : '';
+  }
+  function renderTable() {
+    const S = G.S, T = top(S), zone = $('#pile'), cw = cardW();
+    $('#deckN').textContent = S.draw.length;
+    $('#deck').classList.toggle('can', !!ui.waiting && !ui.sel.size);
+    const vis = S.pile.slice(-10), topM = vis[vis.length - 1].m;
+    const grp = vis.filter(e => e.m === topM);
+    const maxSpread = Math.max(40, zone.clientWidth - cw - 6);
+    const keys = new Set(vis.map(e => e.k));
+    for (const [k, el] of pileEls) if (!keys.has(k)) { el.remove(); pileEls.delete(k); }
+    vis.forEach((e, i) => {
+      let el = pileEls.get(e.k);
+      const j = grp.indexOf(e), c = grp.length;
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'card pc' + (isRed(cs(e.id)) ? ' red' : '');
+        let tag = '';
+        if (e.t === 'w') tag = `<span class="tag">Wunsch <span class="${isRed(e.s) ? 'r' : ''}">${suitSvg(e.s)}</span></span>`;
+        else if (e.t === 'a') tag = `<span class="tag">= <span class="${isRed(e.s) ? 'r' : ''}">${suitSvg(e.s)}</span>${RL[e.r]}</span>`;
+        el.innerHTML = cardInner(e.id) + tag;
+        if (e.by >= 0) { el.style.setProperty('--fy', e.by === 0 ? '150px' : '-150px'); el.style.animationDelay = Math.max(0, j) * 55 + 'ms'; }
+        else el.style.animation = 'none';
+        zone.appendChild(el);
+        pileEls.set(e.k, el);
+      }
+      let dx, dy, rot;
+      if (j >= 0 && c > 1) {
+        const sp = Math.min(cw * 0.44, maxSpread / (c - 1));
+        dx = (j - (c - 1) / 2) * sp; dy = 0; rot = (j - (c - 1) / 2) * (c > 5 ? 1.2 : 2.4);
+      } else {
+        const h = (Math.imul(e.k + 7, 2654435761) >>> 0);
+        dx = (h % 15) - 7; dy = ((h >>> 5) % 11) - 5; rot = ((h >>> 9) % 21) - 10;
+        if (j >= 0) { dx *= 0.4; rot *= 0.5; }
+      }
+      el.style.transform = `translate(${dx}px,${dy}px) rotate(${rot}deg)`;
+      el.style.zIndex = i + 1;
+    });
+    $('#gilt').innerHTML = `Es gilt <i class="${isRed(T.s) ? 'red' : ''}">${suitSvg(T.s)}</i>${T.r !== RJ ? ' oder ' + RL[T.r] : SN[T.s]}`;
+    const fresh = S.seg === 0 && !S.cover, pd = fresh ? S.pend : S.out, tot = pd.b + pd.c;
+    const tgt = fresh ? S.turn : nextOf(S.turn);
+    const pen = $('#pen');
+    if (tot > 0 && !S.over) {
+      const key = tot + ':' + tgt;
+      if (pen.dataset.k !== key) { pen.hidden = true; void pen.offsetWidth; }
+      pen.dataset.k = key;
+      pen.hidden = false;
+      pen.className = 'pen' + (tgt === 0 ? ' me' : '');
+      pen.innerHTML = `<b>+${tot}</b><span>für ${tgt === 0 ? 'dich' : esc(pname(tgt))}</span>`;
+    } else { pen.hidden = true; pen.dataset.k = ''; }
+  }
+  function selCands() {
+    const ids = [...ui.sel];
+    if (!ids.length) return [];
+    const key = ids.sort((a, b) => a - b).join(',');
+    return ui.moves.filter(m => m.key === key);
+  }
+  function renderStatus() {
+    const now = $('#now');
+    let t = ui.now, cls = 'now';
+    if (ui.waiting && ui.sel.size) {
+      const c = selCands();
+      if (!c.length) { cls += ' bad'; t = ui.sel.size === 1 ? `${cardName([...ui.sel][0])} passt nicht. ${gilt()}` : 'Das ist keine gültige Strasse oder Bombe.'; }
+      else {
+        const m = c[0], n = m.cards.length;
+        t = m.kind === 'street' ? `Strasse mit ${n} Karten` : m.kind === 'bomb' ? `${BN[m.cards[3].r]} Bombe` : cardName(m.cards[0].id);
+        const fx = c.length === 1 ? effect(m) : '';
+        t += fx ? `: ${fx}.` : c.length > 1 ? '. Details wählst du beim Legen.' : '. Tippe auf Legen.';
+      }
+    }
+    if (ui.tip) { t = ui.tip; cls = 'now tip'; }
+    $('#last').textContent = ui.warn || ui.last;
+    $('#last').classList.toggle('warn', !!ui.warn);
+    now.textContent = t;
+    now.className = cls;
+  }
+  function renderActions() {
+    const S = G.S, w = !!ui.waiting;
+    const bd = $('#bDraw'), bp = $('#bPlay');
+    bd.disabled = !w; bp.disabled = !w || !ui.sel.size; $('#bTip').disabled = !w;
+    const P = S.pend.b + S.pend.c;
+    bd.textContent = S.cover ? '1 ziehen' : (S.seg === 0 && P > 0 && S.turn === 0) ? `${P} ziehen` : 'Ziehen';
+    $('#bSort').innerHTML = cfg.sort === 'suit' ? 'nach<br>Symbol' : 'nach<br>Wert';
+    $('#me').classList.toggle('on', w);
+    $('#bSound').setAttribute('aria-pressed', cfg.sound ? 'true' : 'false');
+    let h = '';
+    if (w) {
+      const sets = new Map();
+      for (const m of ui.moves) if (m.kind !== 'single' && !sets.has(m.key)) sets.set(m.key, m);
+      let arr = [...sets.values()];
+      arr = arr.filter(m => m.kind === 'bomb' || !arr.some(o => o !== m && o.kind === 'street' && o.cards.length > m.cards.length && m.cards.every(c => o.cards.some(d => d.id === c.id))));
+      arr.sort((a, b) => b.cards.length - a.cards.length);
+      const seen = new Set();
+      for (const m of arr) {
+        const l = m.cards[m.cards.length - 1];
+        const label = m.kind === 'bomb' ? BN[l.r] + ' Bombe' : `Strasse ${SN[l.s]} ${RL[m.cards[0].r]} bis ${RL[l.r]}`;
+        if (seen.has(label) || seen.size >= 3) continue;
+        seen.add(label);
+        h += `<button type="button" data-key="${m.key}">${label}</button>`;
+      }
+    }
+    $('#combo').innerHTML = h;
+  }
+  function render() {
+    if (!G || !G.S) return;
+    renderOpps(); renderTable(); renderHand(); renderActions(); renderStatus();
+    if (G.role === 'host') pushView(false);
+  }
+  function bubble(p, text) {
+    ui.bubble[p] = text; renderOpps(); pushView(false);
+    const my = gid;
+    setTimeout(() => { if (gid === my && ui.bubble[p] === text) { delete ui.bubble[p]; renderOpps(); pushView(false); } }, 1500);
+  }
+
+  /* ---------- Blätter ---------- */
+  function openSheet(html, onClick, closable, tag) {
+    const sh = $('#sheet');
+    sh.innerHTML = `<div class="panel" role="dialog" aria-modal="true">${html}</div>`;
+    sh.hidden = false;
+    ui.sheetClose = closable || null;
+    ui.sheetTag = tag || '';
+    sh.onclick = e => {
+      if (e.target === sh) { if (closable) { closeSheet(); closable(); } return; }
+      const b = e.target.closest('button');
+      if (b && onClick) onClick(b, e);
+    };
+    const f = sh.querySelector('.primary') || sh.querySelector('button');
+    if (f && !sh.querySelector('input')) try { f.focus({ preventScroll: true }); } catch (e) { }
+  }
+  function closeSheet() { const sh = $('#sheet'); sh.hidden = true; sh.innerHTML = ''; sh.onclick = null; ui.sheetClose = null; ui.sheetTag = ''; }
+
+  function describeOption(m) {
+    const c = m.cards, l = c[c.length - 1], fx = effect(m);
+    if (m.kind === 'bomb') return { group: `${BN[l.r]} Bombe${m.pickup ? ' und Karte darunter aufnehmen' : ''}. Oben liegt`, suit: l.s, note: fx };
+    if (m.kind === 'street') return { group: 'Welche Karte soll oben liegen?', text: `Oben liegt ${asName(l)}`, note: fx, minis: c.map(mini).join('') };
+    if (m.jack === 'wish') return { group: 'Symbol wünschen', suit: l.s, note: fx };
+    if (m.jack === 'chain') return { group: `Als ${RL[l.r]} weitergeben`, suit: l.s, note: fx };
+    if (m.jack === 'eight') return { group: 'Als 8 legen und nochmal dran sein', suit: l.s, note: '' };
+    return { group: 'Ass legen', text: m.pickup ? `Und ${asName(top(G.S))} aufnehmen` : 'Karte darunter liegen lassen', note: fx };
+  }
+  function choose(title, moves, sub) {
+    return new Promise(res => {
+      const groups = new Map();
+      moves.forEach((m, i) => { const d = describeOption(m); if (!groups.has(d.group)) groups.set(d.group, []); groups.get(d.group).push({ i, d }); });
+      let h = `<h2>${esc(title)}</h2>` + (sub ? `<p class="sub">${esc(sub)}</p>` : '');
+      for (const [g, arr] of groups) {
+        const suits = arr[0].d.suit != null;
+        h += `<h3>${esc(g)}</h3><div class="${suits ? 'suits' : 'rows'}">`;
+        for (const o of arr) h += suits
+          ? `<button type="button" class="sbtn${isRed(o.d.suit) ? ' red' : ''}" data-i="${o.i}">${suitSvg(o.d.suit)}<span>${SN[o.d.suit]}</span>${o.d.note ? `<small>${esc(o.d.note)}</small>` : ''}</button>`
+          : `<button type="button" class="rbtn" data-i="${o.i}">${o.d.minis ? `<span class="minis">${o.d.minis}</span>` : ''}<span>${esc(o.d.text)}</span>${o.d.note ? `<small>${esc(o.d.note)}</small>` : ''}</button>`;
+        h += '</div>';
+      }
+      h += '<button type="button" class="ghost" data-x="1">Abbrechen</button>';
+      openSheet(h, b => {
+        closeSheet();
+        res(b.dataset.i != null ? moves[+b.dataset.i] : null);
+      }, () => res(null), 'choose');
+    });
+  }
+  function confirmTimed(title, text, yes, no, ms) {
+    return new Promise(res => {
+      let done = false;
+      const fin = v => { if (done) return; done = true; clearTimeout(t); if (ui.sheetTag === 'confirm') closeSheet(); res(v); };
+      openSheet(`<h2>${esc(title)}</h2><p>${esc(text)}</p><div class="timer"><i class="tm" style="animation-duration:${ms}ms"></i></div>
+        <button type="button" class="primary" data-y="1">${esc(yes)}</button><button type="button" class="ghost">${esc(no)}</button>`,
+        b => fin(!!b.dataset.y), null, 'confirm');
+      const t = setTimeout(() => fin(false), ms);
+    });
+  }
+
+  function seg(id, label, opts, cur, dis) {
+    return `<div class="opt"><span>${label}</span><div class="seg" data-k="${id}">` +
+      opts.map(([v, t]) => `<button type="button" id="seg-${id}-${v}" data-v="${v}" aria-pressed="${String(v) === String(cur)}"${dis && dis(v) ? ' disabled' : ''}>${t}</button>`).join('') + '</div></div>';
+  }
+  const handOk = (opp, h) => (opp + 1) * h <= 30;
+  function startSheet() {
+    if (G && G.online) { onlineMenu(); return; }
+    const running = G && G.started && !G.S.over;
+    if (!handOk(cfg.opp, cfg.hand)) cfg.hand = 7;
+    openSheet(`
+      <div class="hero">${$('#logoTpl').innerHTML}<div><h1>Butterbrot</h1></div></div>
+      <p class="sub">Werde als Erste oder Erster alle Karten los. Wer die zweitletzte Karte legt, ruft Butter. Wer die letzte legt, ruft Brot.</p>
+      <button type="button" class="primary alt" data-online="1">Online 1:1 spielen</button>
+      <h3>Gegen den Computer</h3>
+      ${seg('opp', 'Gegner', [[1, '1'], [2, '2'], [3, '3']], cfg.opp)}
+      ${seg('hand', 'Handkarten', [[7, '7'], [8, '8'], [9, '9']], cfg.hand, v => !handOk(cfg.opp, v))}
+      ${seg('level', 'Spielstärke', [[0, 'Gemütlich'], [1, 'Normal'], [2, 'Gerissen']], cfg.level)}
+      ${seg('calls', 'Butter und Brot', [['manual', 'Selber rufen'], ['auto', 'Automatisch']], cfg.calls)}
+      <button type="button" class="primary" data-go="1">${running ? 'Neu austeilen' : 'Austeilen'}</button>
+      ${running ? '<button type="button" class="ghost" data-back="1">Weiterspielen</button>' : ''}
+      <button type="button" class="ghost" data-rules="1">Regeln lesen</button>`,
+      b => {
+        const sg = b.closest('.seg');
+        if (sg) {
+          const k = sg.dataset.k, v = b.dataset.v;
+          cfg[k] = k === 'calls' ? v : +v;
+          if (!handOk(cfg.opp, cfg.hand)) cfg.hand = 7;
+          save('bb_cfg', cfg);
+          document.querySelectorAll('#sheet .seg').forEach(g => g.querySelectorAll('button').forEach(x => {
+            x.setAttribute('aria-pressed', String(x.dataset.v) === String(cfg[g.dataset.k]));
+            if (g.dataset.k === 'hand') x.disabled = !handOk(cfg.opp, +x.dataset.v);
+          }));
+          return;
+        }
+        if (b.dataset.go) { closeSheet(); sfx('play'); startRound(false); }
+        else if (b.dataset.online) { sfx('play', true); onlineSheet(false); }
+        else if (b.dataset.back) closeSheet();
+        else if (b.dataset.rules) rulesSheet(startSheet);
+      }, running ? () => { } : null, 'start');
+  }
+  function rulesSheet(back) {
+    openSheet($('#rulesTpl').innerHTML + '<button type="button" class="primary" data-x="1">Alles klar</button>',
+      b => { if (b.dataset.x) { closeSheet(); if (back) back(); } }, () => { if (back) back(); }, 'rules');
+  }
+  function logSheet() {
+    if (!G || !G.S) return;
+    const rows = G.log.slice(-30).reverse().map(t => `<div>${esc(t)}</div>`).join('') || '<div>Noch nichts passiert.</div>';
+    openSheet(`<h2>Verlauf</h2><div class="loglist">${rows}</div><button type="button" class="ghost" data-x="1">Schliessen</button>`,
+      b => { if (b.dataset.x) closeSheet(); }, () => { }, 'log');
+  }
+  function endSheet() {
+    const S = G.S, w = S.winner;
+    let rows = '';
+    for (let p = 0; p < S.n; p++) rows += `<div class="${p === w ? 'win' : ''}"><span>${p === 0 ? 'Du' : esc(pname(p))}${p === w ? (p === 0 ? ' gewinnst diese Runde' : ' gewinnt diese Runde') : `, noch ${S.hands[p].length} ${S.hands[p].length === 1 ? 'Karte' : 'Karten'}`}</span><b>${G.tally[p]}</b></div>`;
+    openSheet(`<h2>${w === 0 ? 'Brot! Du bist alle Karten los.' : esc(pname(w)) + ' ist alle Karten los.'}</h2>
+      <p class="sub">Gewonnene Runden bisher</p><div class="tally">${rows}</div>
+      <button type="button" class="primary" data-go="1">Nächste Runde</button>
+      <button type="button" class="ghost" data-set="1">${G.online ? 'Spiel verlassen' : 'Einstellungen'}</button>`,
+      b => {
+        if (b.dataset.go) {
+          if (!G.online) { closeSheet(); startRound(false); }
+          else if (G.role === 'host') { closeSheet(); startRound(true); }
+          else { b.disabled = true; b.textContent = 'Wird ausgeteilt'; send(net.peerId, { t: 'again', room: net.room, from: net.id }); }
+        } else if (b.dataset.set) { if (G.online) endOnline('leave'); else startSheet(); }
+      }, null, 'end');
+  }
+
+  /* ---------- Eingabe ---------- */
+  function humanInput() {
+    const S = G.S;
+    ui.moves = genMoves(S, S.hands[0], true);
+    for (const m of ui.moves) m.key = m.cards.map(c => c.id).sort((a, b) => a - b).join(',');
+    ui.usable = new Set(ui.moves.flatMap(m => m.cards.map(c => c.id)));
+    return new Promise(res => { ui.waiting = res; render(); });
+  }
+  function stopInput() { ui.waiting = null; ui.moves = []; ui.tip = null; ui.sel.clear(); if (ui.sheetTag === 'choose') closeSheet(); }
+  function submit(act) { const w = ui.waiting; if (!w) return; ui.waiting = null; ui.moves = []; ui.tip = null; w(act); }
+  function tapCard(id) {
+    if (!ui.waiting) return;
+    if (ui.sel.has(id)) {
+      if (ui.sel.size === 1 && selCands().length) { tryPlay(); return; }
+      ui.sel.delete(id);
+    } else ui.sel.add(id);
+    ui.tip = null; buzz(6); render();
+  }
+  async function tryPlay() {
+    if (!ui.waiting || !ui.sel.size) return;
+    const c = selCands();
+    if (!c.length) {
+      sfx('err', true);
+      for (const id of ui.sel) { const e = handEls.get(id); if (e) { e.classList.add('shake'); setTimeout(() => e.classList.remove('shake'), 320); } }
+      return;
+    }
+    let mv = c[0];
+    if (c.length > 1) {
+      const title = mv.kind === 'street' ? 'Strasse legen' : mv.kind === 'bomb' ? 'Bombe legen' : cr(mv.cards[0].id) === RJ ? 'Was soll der Bube tun?' : 'Ass legen';
+      mv = await choose(title, c);
+      if (!mv || !ui.waiting) return;
+    }
+    submit({ mv });
+  }
+  function tip() {
+    if (!ui.waiting) return;
+    const pl = botPlan(G.S, 2);
+    ui.sel.clear();
+    if (!pl.seq.length) { ui.tip = 'Tipp: ziehen und auf bessere Karten warten.'; const b = $('#bDraw'); b.classList.add('pulse'); setTimeout(() => b.classList.remove('pulse'), 1100); }
+    else { const m = pl.seq[0]; for (const c of m.cards) ui.sel.add(c.id); ui.tip = 'Tipp: ' + optionText(m) + '.'; }
+    render();
+  }
+
+  /* ---------- Spielablauf (läuft allein oder beim Gastgeber des Onlinespiels) ---------- */
+  const ck = my => { if (!G || G.id !== my) throw CANCEL; };
+  const pause = async (my, ms) => { await sleep(ms); ck(my); };
+  function tagPile(mv, p) {
+    const S = G.S, n = mv.cards.length;
+    G.mv++;
+    for (let i = 0; i < n; i++) {
+      const e = S.pile[S.pile.length - n + i], c = mv.cards[i];
+      e.k = ++G.pk; e.m = G.mv; e.by = p;
+      if (cr(c.id) === RJ) e.t = mv.jack === 'wish' ? 'w' : (c.r !== RJ || c.s !== cs(c.id)) ? 'a' : undefined;
+    }
+  }
+  function checkShuffle() {
+    if (G.S.shuffles !== ui.shuffles) { ui.shuffles = G.S.shuffles; say('Der Ablagestapel wird neu gemischt.'); }
+  }
+  function humanCall(kind) {
+    return new Promise(res => {
+      const z = $('#callZone'), ms = 3500;
+      if (ui.callFin) ui.callFin(false);
+      let done = false;
+      const fin = ok => { if (done) return; done = true; clearTimeout(t); if (ui.callFin === fin) ui.callFin = null; z.hidden = true; z.innerHTML = ''; res(ok); };
+      ui.callFin = fin;
+      z.innerHTML = `<button type="button" class="pat ${kind}" id="pat"><span>${kind === 'butter' ? 'Butter!' : 'Brot!'}</span><i class="tm" style="animation-duration:${ms}ms"></i></button>`;
+      z.hidden = false;
+      const t = setTimeout(() => fin(false), ms);
+      $('#pat').addEventListener('click', () => fin(true));
+      ui.now = kind === 'butter' ? 'Schnell: Butter rufen!' : 'Schnell: Brot rufen!';
+      renderStatus();
+    });
+  }
+  /* Frage an das andere Gerät: Zug, Ruf oder Bombe */
+  function ask(req, ms, dflt) {
+    return new Promise(res => {
+      const id = ++G.rid, g = G;
+      g.req = Object.assign({ id }, req);
+      let done = false;
+      const fin = v => { if (done) return; done = true; clearTimeout(t); if (g.req && g.req.id === id) g.req = null; g.onAns = null; res(v); };
+      const t = ms ? setTimeout(() => fin(dflt), ms) : 0;
+      g.onAns = m => { if (m && m.id === id) fin(m); };
+      pushView(false);
+    });
+  }
+  const sig = m => m.kind + '|' + m.cards.map(c => c.id + '.' + c.r + '.' + c.s).join(',') + '|' + (m.pickup ? 1 : 0);
+  function matchMove(list, mv) {
+    try { const want = sig(mv); return list.find(m => sig(m) === want) || null; } catch (e) { return null; }
+  }
+  const packMove = m => ({ kind: m.kind, pickup: !!m.pickup, jack: m.jack, cards: m.cards.map(c => ({ id: c.id, r: c.r, s: c.s })) });
+
+  async function call(my, p, kind) {
+    const word = kind === 'butter' ? 'Butter!' : 'Brot!';
+    if (isRemote(p)) {
+      const m = await ask({ kind: 'call', call: kind }, 7000, { ok: false }); ck(my);
+      if (m.ok) { bubble(p, word); sfx(kind); await pause(my, 300); }
+      return !!m.ok;
+    }
+    if (p !== 0) {
+      if (Math.random() < FORGET[cfg.level] * (kind === 'brot' ? 0.5 : 1)) return false;
+      bubble(p, word); sfx(kind); await pause(my, 700); return true;
+    }
+    if (cfg.calls === 'auto' && !G.online) { bubble(0, word); sfx(kind); await pause(my, 500); return true; }
+    const ok = await humanCall(kind); ck(my);
+    if (ok) { bubble(0, word); sfx(kind); buzz(20); await pause(my, 300); }
+    return ok;
+  }
+  async function interrupt(my, p) {
+    const S = G.S;
+    for (let k = 1; k < S.n; k++) {
+      const q = (p + k) % S.n;
+      let mv = null;
+      if (isRemote(q)) {
+        const bombs = bombMoves(S, S.hands[q], true);
+        if (bombs.length) {
+          const m = await ask({ kind: 'bomb', by: p }, 18000, {}); ck(my);
+          if (m.mv) mv = matchMove(bombs, m.mv);
+        }
+      } else if (q === 0) {
+        const bombs = bombMoves(S, S.hands[0], true);
+        if (bombs.length) {
+          const yes = await confirmTimed(`${pname(p)} will ausmachen`, `${pname(p)} hat Butter gerufen und ist nach der 8 nochmal dran. Nur eine Bombe hält das jetzt auf.`, 'Bombe werfen', 'Laufen lassen', 8000);
+          ck(my);
+          if (yes) { mv = await choose('Bombe werfen', bombs); ck(my); }
+        }
+      } else mv = botInterrupt(S, q, cfg.level);
+      if (mv) {
+        say(v => (q === v ? 'Du wirfst eine Bombe dazwischen.' : `${pname(q)} wirft eine Bombe dazwischen.`));
+        await doPlay(my, q, mv, true);
+        return true;
+      }
+    }
+    return false;
+  }
+  async function afterPlay(my, p, before, r) {
+    const S = G.S, N = pname(p);
+    if (S.hands[p].length === 1 && S.owed === 0 && before > 1) {
+      const ok = await call(my, p, 'butter');
+      if (!ok) { drawCards(S, p, 2); say(v => (p === v ? 'Butter vergessen. Du ziehst 2.' : `${N} vergisst Butter und zieht 2.`)); sfx('err'); checkShuffle(); render(); await pause(my, 1000); }
+    }
+    if (r.cont) {
+      if (S.hands[p].length === 1 && S.owed === 0) await interrupt(my, p);
+      return;
+    }
+    if (S.hands[p].length === 0 && S.owed === 0) {
+      const ok = await call(my, p, 'brot');
+      if (!ok) { S.owed += 2; say(v => (p === v ? 'Brot vergessen. Das kostet 2 Karten.' : `${N} vergisst Brot. Das kostet 2 Karten.`)); sfx('err'); }
+    }
+    const drawn = endTurn(S);
+    if (drawn.length) {
+      const w = drawn.length === 1 ? 'Strafkarte' : 'Strafkarten';
+      say(v => (p === v ? `Du ziehst ${drawn.length} ${w}.` : `${N} zieht ${drawn.length} ${w}.`));
+      sfx('draw'); checkShuffle(); render(); await pause(my, 700);
+    } else render();
+  }
+  async function doPlay(my, p, mv, inter) {
+    const S = G.S, before = S.hands[p].length;
+    const r = inter ? applyInterrupt(S, p, mv) : applyPlay(S, mv);
+    tagPile(mv, p);
+    if (p === 0) { ui.sel.clear(); ui.tip = null; ui.now = ''; }
+    say(v => moveText(p, mv, r, v));
+    sfx(mv.kind === 'bomb' ? 'bomb' : 'play'); buzz(mv.kind === 'bomb' ? 60 : 10);
+    render();
+    await pause(my, mv.cards.length > 1 ? 1000 : p === 0 ? 420 : isRemote(p) ? 500 : 800);
+    await afterPlay(my, p, before, r);
+  }
+  async function doDraw(my, p) {
+    const S = G.S, cov = S.cover, N = pname(p);
+    const k = applyDraw(S).length;
+    if (p === 0) { ui.sel.clear(); ui.tip = null; }
+    if (!k) say('Es liegen keine Karten mehr zum Ziehen bereit.');
+    else if (cov) say(v => (p === v ? `Du deckst die 8 nicht und ziehst ${k}.` : `${N} kann die 8 nicht decken und zieht ${k}.`));
+    else say(v => (p === v ? `Du ziehst ${k}.` : `${N} zieht ${k}.`));
+    sfx('draw'); checkShuffle(); render();
+    await pause(my, p === 0 ? 380 : isRemote(p) ? 420 : 700);
+  }
+  async function step(my) {
+    const S = G.S, p = S.turn;
+    let act;
+    if (S.cover && !S.hands[p].length) { act = { draw: true }; await pause(my, 400); }
+    else if (p === 0) {
+      ui.now = turnText();
+      if (G.rem) G.rem.now = `${pname(0)} ist ${S.seg ? 'nochmal ' : ''}dran.`;
+      act = await humanInput(); ck(my);
+    } else if (isRemote(p)) {
+      ui.now = `${pname(p)} ist ${S.seg ? 'nochmal ' : ''}dran.`; G.rem.now = '';
+      render();
+      act = null;
+      while (!act) {
+        const m = await ask({ kind: 'turn' }); ck(my);
+        const a = m.act || {};
+        if (a.draw) act = { draw: true };
+        else if (a.mv) { const f = matchMove(genMoves(S, S.hands[p], true), a.mv); if (f) act = { mv: f }; }
+      }
+    } else {
+      ui.now = S.seg === 0 ? `${pname(p)} überlegt.` : `${pname(p)} ist nochmal dran.`;
+      render();
+      await pause(my, S.seg === 0 ? 750 + Math.random() * 450 : 560);
+      const pl = botPlan(S, cfg.level);
+      act = pl.seq.length ? { mv: pl.seq[0] } : { draw: true };
+    }
+    if (act.draw) await doDraw(my, p); else await doPlay(my, p, act.mv, false);
+  }
+  async function loop() {
+    const my = G.id;
+    try {
+      while (G && G.id === my && !G.S.over) await step(my);
+      ck(my);
+      const w = G.S.winner;
+      G.tally[w]++; if (!G.online) save('bb_tally', tally);
+      ui.now = w === 0 ? 'Gewonnen!' : `${pname(w)} gewinnt.`;
+      if (G.rem) G.rem.now = w === 1 ? 'Gewonnen!' : `${pname(w)} gewinnt.`;
+      sfx(w === 0 ? 'win' : 'lose'); render();
+      await pause(my, 1100);
+      endSheet();
+    } catch (e) { if (e !== CANCEL) throw e; }
+  }
+  function resetBoard() {
+    ui.sel.clear(); ui.waiting = null; ui.moves = []; ui.tip = null; ui.bubble = {}; ui.shuffles = 0; ui.warn = '';
+    for (const e of handEls.values()) e.remove(); handEls.clear();
+    for (const e of pileEls.values()) e.remove(); pileEls.clear();
+    if (ui.callFin) ui.callFin(false);
+    $('#callZone').hidden = true; $('#callZone').innerHTML = '';
+  }
+  function deal(started, online) {
+    resetBoard();
+    const round = online ? ++net.round : started ? ++roundSP : roundSP;
+    const n = online ? 2 : cfg.opp + 1, hs = online ? 7 : handOk(cfg.opp, cfg.hand) ? cfg.hand : 7;
+    const S = newGame(n, hs, started ? round - 1 : 0);
+    Object.assign(S.pile[0], { k: 0, m: 0, by: -1 });
+    G = { id: ++gid, S, round, pk: 0, mv: 0, log: [], started, names: online ? [net.name, net.peerName] : BOTS.slice(0, n), tally: online ? net.tally : tally.w };
+    if (online) Object.assign(G, { online: true, role: 'host', rem: { last: '', now: '', log: [], sfx: { n: 0, k: '' } }, vc: 0, rid: 0, req: null, onAns: null, lastBody: '' });
+    if (started) say(v => `Runde ${round}${online ? ' gegen ' + pname(v === 0 ? 1 : 0) : ''}. ${S.turn === v ? 'Du beginnst' : pname(S.turn) + ' beginnt'}.`);
+    else ui.last = 'Die Karten liegen bereit.';
+    ui.now = started ? '' : 'Tippe auf Austeilen.';
+    render();
+  }
+  function startRound(online) { deal(true, online); loop(); }
+
+  /* ---------- Online: Verbindung, Lobby, Zusammenführen ---------- */
+  let libP = null;
+  function loadLib() {
+    if (window.mqtt) return Promise.resolve();
+    if (libP) return libP;
+    libP = new Promise((ok, bad) => {
+      const s = document.createElement('script');
+      const t = setTimeout(() => bad(new Error('timeout')), 12000);
+      s.src = NET.lib;
+      s.onload = () => { clearTimeout(t); window.mqtt ? ok() : bad(new Error('lib')); };
+      s.onerror = () => { clearTimeout(t); bad(new Error('lib')); };
+      document.head.appendChild(s);
+    });
+    libP.catch(() => { libP = null; });
+    return libP;
+  }
+  function send(to, obj) {
+    try { if (net.client && to) net.client.publish(TOP.user(to), JSON.stringify(obj), { qos: 1 }); } catch (e) { }
+  }
+  function announce() {
+    try {
+      if (net.client && net.client.connected && net.state !== 'off')
+        net.client.publish(TOP.lobby(), JSON.stringify({ id: net.id, name: net.name, st: net.state === 'lobby' ? 'free' : 'busy' }), { qos: 0 });
+    } catch (e) { }
+  }
+  async function netConnect() {
+    net.state = 'connecting'; lobbyRender();
+    try { await loadLib(); } catch (e) { if (net.state === 'connecting') { net.state = 'error'; lobbyRender(); } return; }
+    if (net.state !== 'connecting') return;
+    let i = 0;
+    const tryNext = () => {
+      if (net.state !== 'connecting') return;
+      if (i >= NET.brokers.length) { net.client = null; net.state = 'error'; lobbyRender(); return; }
+      const url = NET.brokers[i++];
+      let c, up = false, dead = false;
+      try {
+        c = window.mqtt.connect(url, {
+          clientId: 'bb_' + net.id + '_' + Date.now().toString(36), clean: true, keepalive: 20, reconnectPeriod: 2500, connectTimeout: 7000,
+          will: { topic: TOP.lobby(), payload: JSON.stringify({ id: net.id, bye: 1 }), qos: 0, retain: false }
+        });
+      } catch (e) { tryNext(); return; }
+      net.client = c;
+      const fail = () => { if (up || dead) return; dead = true; clearTimeout(to); try { c.end(true); } catch (e) { } if (net.client === c) tryNext(); };
+      const to = setTimeout(fail, 8500);
+      c.on('connect', () => {
+        if (net.client !== c) { try { c.end(true); } catch (e) { } return; }
+        up = true; clearTimeout(to);
+        c.subscribe([TOP.lobby(), TOP.user(net.id)], { qos: 1 }, () => {
+          if (net.client !== c) return;
+          if (net.state === 'connecting') { net.state = 'lobby'; net.peers.clear(); }
+          if (!net.tick) net.tick = setInterval(netTick, 1000);
+          announce(); lobbyRender();
+        });
+      });
+      c.on('error', fail);
+      c.on('close', fail);
+      c.on('message', (topic, payload) => {
+        if (net.client !== c) return;
+        let m; try { m = JSON.parse(payload.toString()); } catch (e) { return; }
+        if (!m || typeof m !== 'object') return;
+        try { if (topic === TOP.lobby()) onLobby(m); else onDirect(m); } catch (e) { }
+      });
+    };
+    tryNext();
+  }
+  function netOff() {
+    clearInterval(net.tick); net.tick = 0; clearTimeout(net.invTo);
+    const c = net.client;
+    try {
+      if (c && c.connected) {
+        if (net.state === 'game' && net.peerId) send(net.peerId, { t: 'bye', room: net.room, from: net.id });
+        c.publish(TOP.lobby(), JSON.stringify({ id: net.id, bye: 1 }), { qos: 0 });
+      }
+    } catch (e) { }
+    net.client = null; net.state = 'off'; net.peers.clear(); net.peerId = null; net.room = ''; net.role = null;
+    if (c) setTimeout(() => { try { c.end(true); } catch (e) { } }, 400);
+  }
+  function onLobby(m) {
+    if (m.id === net.id || typeof m.id !== 'string') return;
+    if (m.bye) net.peers.delete(m.id);
+    else net.peers.set(m.id, { name: cleanName(m.name) || 'Gast', st: m.st === 'free' ? 'free' : 'busy', t: Date.now() });
+    match(); lobbyRender();
+  }
+  function match() {
+    if (net.state !== 'lobby') return;
+    const now = Date.now();
+    const free = [...net.peers].filter(([id, p]) => p.st === 'free' && now - p.t < 8000 && !(net.skip[id] > now)).map(([id]) => id);
+    if (!free.length) return;
+    const all = free.concat([net.id]).sort();
+    if (all[0] !== net.id) return;                 // die Person mit der kleineren Kennung lädt ein
+    const target = all[1];
+    net.state = 'inviting'; net.peerId = target; net.room = net.id + '-' + now.toString(36);
+    send(target, { t: 'invite', from: net.id, name: net.name, room: net.room });
+    announce();
+    clearTimeout(net.invTo);
+    net.invTo = setTimeout(() => { if (net.state === 'inviting') { net.skip[target] = Date.now() + 8000; net.state = 'lobby'; net.peerId = null; announce(); lobbyRender(); } }, 6000);
+  }
+  function onDirect(m) {
+    if (m.t === 'invite') {
+      if (net.state === 'lobby' && typeof m.from === 'string' && typeof m.room === 'string') {
+        net.state = 'game'; net.role = 'guest'; net.peerId = m.from; net.peerName = cleanName(m.name) || 'Gast'; net.room = m.room; net.lastPeer = Date.now();
+        send(m.from, { t: 'accept', from: net.id, name: net.name, room: m.room });
+        announce(); startGuest();
+      } else if (!(net.state === 'game' && m.room === net.room)) send(m.from, { t: 'decline', from: net.id, room: m.room });
+      return;
+    }
+    if (m.room !== net.room || m.from !== net.peerId) return;
+    if (m.t === 'accept') {
+      if (net.state !== 'inviting') return;
+      clearTimeout(net.invTo);
+      net.state = 'game'; net.role = 'host'; net.peerName = cleanName(m.name) || 'Gast'; net.lastPeer = Date.now();
+      announce(); startHost();
+      return;
+    }
+    if (m.t === 'decline') {
+      if (net.state === 'inviting') { clearTimeout(net.invTo); net.skip[m.from] = Date.now() + 8000; net.state = 'lobby'; net.peerId = null; announce(); lobbyRender(); }
+      return;
+    }
+    if (net.state !== 'game') return;
+    net.lastPeer = Date.now();
+    if (ui.warn) { ui.warn = ''; renderStatus(); }
+    if (m.t === 'view' && net.role === 'guest') onView(m);
+    else if (m.t === 'ans' && net.role === 'host') { if (G && G.onAns) G.onAns(m); }
+    else if (m.t === 'again' && net.role === 'host') { if (G && G.online && G.S.over) { if (ui.sheetTag === 'end') closeSheet(); startRound(true); } }
+    else if (m.t === 'bye') endOnline('left');
+  }
+  function netTick() {
+    const now = Date.now();
+    for (const [id, p] of net.peers) if (now - p.t > 9000) net.peers.delete(id);
+    if (++net.beat % 3 === 0) {
+      announce();
+      if (net.state === 'game') { if (net.role === 'host') pushView(true); else send(net.peerId, { t: 'ping', room: net.room, from: net.id }); }
+    }
+    if (net.state === 'lobby') match();
+    if (net.state === 'game') {
+      const quiet = now - net.lastPeer;
+      if (quiet > 45000) { endOnline('lost'); return; }
+      const w = quiet > 10000 ? `Warte auf ${net.peerName}. Die Verbindung hängt.` : '';
+      if (w !== (ui.warn || '')) { ui.warn = w; renderStatus(); }
+      if (net.role === 'guest' && G && !G.S && quiet > 12000) { endOnline('lost'); return; }
+    }
+    lobbyRender();
+  }
+  function lobbyRender() {
+    if (ui.sheetTag !== 'lobby') return;
+    const el = $('#lobbyState'), btn = $('#lobbyBtn');
+    if (!el || !btn) return;
+    const st = net.state;
+    let h = '';
+    if (st === 'connecting') h = '<p>Verbinde mit dem Spielserver.</p>';
+    else if (st === 'error') h = '<p class="warn">Keine Verbindung zum Spielserver. In der Vorschau bei Claude ist das Netz gesperrt, auf einer normal gehosteten Seite klappt es. Sonst gleich nochmal versuchen.</p>';
+    else if (st !== 'off') {
+      const now = Date.now(), others = [...net.peers.values()].filter(p => now - p.t < 9000);
+      h = `<p><b>Du bist online als ${esc(net.name)}.</b> ${st === 'inviting' || st === 'game' ? 'Mitspieler gefunden, das Spiel startet.' : 'Sobald eine zweite Person sucht, geht es los.'}</p>` +
+        (others.length ? `<div class="peers">${others.map(p => `<span>${esc(p.name)} ${p.st === 'free' ? 'sucht auch' : 'spielt gerade'}</span>`).join('')}</div>` : '<p class="sub">Gerade ist sonst niemand hier. Schick jemandem den Link.</p>');
+    }
+    if (el.innerHTML !== h) el.innerHTML = h;
+    const searching = st !== 'off' && st !== 'error';
+    btn.textContent = searching ? 'Suche abbrechen' : 'Mitspieler suchen';
+    btn.dataset.mode = searching ? 'stop' : 'search';
+    btn.className = searching ? 'ghost' : 'primary';
+    $('#nick').disabled = searching;
+  }
+  function onlineSheet(auto) {
+    openSheet(`<h2>Online 1:1</h2>
+      <p class="sub">Wer diese Seite gleichzeitig offen hat und auch sucht, wird dein Gegner. Gespielt wird mit 7 Karten, Butter und Brot ruft ihr selbst.</p>
+      <label class="opt" for="nick"><span>Dein Name</span><input id="nick" type="text" maxlength="14" autocomplete="nickname" placeholder="Wie heisst du?" value="${esc(cfg.name || '')}"></label>
+      <div id="lobbyState" aria-live="polite"></div>
+      <button type="button" class="primary" id="lobbyBtn" data-mode="search">Mitspieler suchen</button>
+      <button type="button" class="ghost" data-copy="1">Link kopieren</button>
+      <button type="button" class="ghost" data-back="1">Zurück</button>`,
+      b => {
+        if (b.id === 'lobbyBtn') {
+          if (b.dataset.mode === 'stop') { netOff(); lobbyRender(); return; }
+          goSearch();
+        } else if (b.dataset.copy) {
+          const done = t => { b.textContent = t; setTimeout(() => { b.textContent = 'Link kopieren'; }, 1800); };
+          try { navigator.clipboard.writeText(location.href).then(() => done('Link kopiert'), () => done('Kopieren geht hier nicht')); } catch (e) { done('Kopieren geht hier nicht'); }
+        } else if (b.dataset.back) { netOff(); closeSheet(); startSheet(); }
+      }, null, 'lobby');
+    lobbyRender();
+    if (auto) goSearch();
+  }
+  function goSearch() {
+    const inp = $('#nick');
+    cfg.name = cleanName(inp ? inp.value : cfg.name) || 'Gast ' + (10 + ((Math.random() * 90) | 0));
+    if (inp) inp.value = cfg.name;
+    save('bb_cfg', cfg);
+    net.name = cfg.name;
+    netConnect();
+  }
+  function onlineMenu() {
+    openSheet(`<h2>Onlinespiel gegen ${esc(net.peerName)}</h2><p class="sub">Wenn du gehst, ist das Spiel für euch beide vorbei.</p>
+      <button type="button" class="primary" data-back="1">Weiterspielen</button>
+      <button type="button" class="ghost" data-rules="1">Regeln lesen</button>
+      <button type="button" class="ghost" data-leave="1">Spiel verlassen</button>`,
+      b => { if (b.dataset.back) closeSheet(); else if (b.dataset.rules) rulesSheet(onlineMenu); else if (b.dataset.leave) endOnline('leave'); }, () => { }, 'menu');
+  }
+  function endOnline(reason) {
+    const peer = net.peerName || 'Dein Mitspieler';
+    netOff();
+    gid++;
+    closeSheet();
+    net.round = 0; net.tally = [0, 0];
+    G = null;
+    deal(false, false);
+    const msg = reason === 'left' ? `${peer} hat das Spiel verlassen.` : reason === 'lost' ? 'Die Verbindung ist abgebrochen.' : 'Du hast das Onlinespiel verlassen.';
+    openSheet(`<h2>${esc(msg)}</h2>
+      <button type="button" class="primary" data-on="1">Neuen Mitspieler suchen</button>
+      <button type="button" class="ghost" data-menu="1">Zum Menü</button>`,
+      b => { if (b.dataset.on) onlineSheet(true); else startSheet(); }, null, 'gone');
+  }
+
+  /* ---------- Online: Gastgeber schickt die Sicht, Gast zeigt sie ---------- */
+  function viewFor(v) {
+    const S = G.S, n = S.n, rot = p => (p < 0 ? p : (p - v + n) % n), rotArr = a => a.map((_, i) => a[(i + v) % n]);
+    const hands = [];
+    for (let i = 0; i < n; i++) { const p = (i + v) % n; hands.push(p === v ? S.hands[p].slice() : S.hands[p].map(() => -1)); }
+    const bub = {};
+    for (const k in ui.bubble) bub[rot(+k)] = ui.bubble[k];
+    return {
+      round: G.round, names: rotArr(G.names), tally: rotArr(G.tally),
+      S: {
+        n, hands, draw: S.draw.map(() => -1),
+        pile: S.pile.slice(-12).map(e => ({ id: e.id, r: e.r, s: e.s, k: e.k, m: e.m, by: rot(e.by), t: e.t })),
+        turn: rot(S.turn), pend: S.pend, out: S.out, owed: S.owed, seg: S.seg, cover: S.cover, over: S.over, winner: rot(S.winner), shuffles: S.shuffles
+      },
+      last: G.rem.last, now: G.rem.now, log: G.rem.log.slice(-30), bubble: bub, sfx: G.rem.sfx,
+      req: G.req ? { id: G.req.id, kind: G.req.kind, call: G.req.call, by: G.req.by == null ? undefined : rot(G.req.by) } : null
+    };
+  }
+  function pushView(force) {
+    if (!G || G.role !== 'host' || net.state !== 'game' || !G.rem) return;
+    const vw = viewFor(1), body = JSON.stringify(vw);
+    if (body === G.lastBody) { if (!force) return; }
+    else { G.lastBody = body; G.vc++; }
+    send(net.peerId, { t: 'view', room: net.room, from: net.id, c: G.vc, view: vw });
+  }
+  function startHost() {
+    closeSheet();
+    net.tally = [0, 0]; net.round = 0;
+    startRound(true);
+  }
+  function startGuest() {
+    closeSheet();
+    gid++;
+    resetBoard();
+    G = { id: gid, online: true, role: 'guest', S: null, names: [net.name, net.peerName], tally: [0, 0], round: 0, log: [], started: true, vc: 0, reqId: 0, answered: null, sfxN: -1, endRound: 0 };
+    ui.last = `Verbunden mit ${net.peerName}.`; ui.now = 'Die Karten werden verteilt.'; ui.warn = '';
+    $('#last').textContent = ui.last; $('#now').textContent = ui.now; $('#now').className = 'now';
+    $('#combo').innerHTML = ''; $('#opps').innerHTML = '';
+    $('#bDraw').disabled = true; $('#bPlay').disabled = true; $('#bTip').disabled = true; $('#me').classList.remove('on');
+  }
+  function answer(id, data) {
+    if (!G || G.role !== 'guest') return;
+    const msg = Object.assign({ t: 'ans', room: net.room, from: net.id, id }, data);
+    G.answered = { id, msg, t: Date.now() };
+    send(net.peerId, msg);
+  }
+  function startReq(rq) {
+    const g = G, alive = () => G === g && g.reqId === rq.id;
+    if (rq.kind === 'turn') {
+      ui.sel.clear(); ui.tip = null;
+      ui.now = turnText();
+      humanInput().then(act => {
+        if (!alive()) return;
+        ui.sel.clear(); ui.now = '';
+        answer(rq.id, { act: act.draw ? { draw: true } : { mv: packMove(act.mv) } });
+        render();
+      });
+    } else if (rq.kind === 'call') {
+      humanCall(rq.call).then(ok => { if (!alive()) return; if (ok) buzz(20); answer(rq.id, { ok }); });
+    } else if (rq.kind === 'bomb') {
+      const bombs = bombMoves(g.S, g.S.hands[0], true);
+      if (!bombs.length) { answer(rq.id, {}); return; }
+      const nm = pname(rq.by) || net.peerName;
+      confirmTimed(`${nm} will ausmachen`, `${nm} hat Butter gerufen und ist nach der 8 nochmal dran. Nur eine Bombe hält das jetzt auf.`, 'Bombe werfen', 'Laufen lassen', 8000)
+        .then(yes => (yes && alive() ? choose('Bombe werfen', bombs) : null))
+        .then(mv => { if (alive()) answer(rq.id, mv ? { mv: packMove(mv) } : {}); });
+    }
+  }
+  function onView(m) {
+    const vw = m.view, g = G;
+    if (!g || g.role !== 'guest' || !vw || !vw.S || !Array.isArray(vw.S.hands) || !Array.isArray(vw.S.pile) || !vw.S.pile.length) return;
+    if (typeof m.c !== 'number' || vw.round < g.round || (m.c < g.vc && vw.round === g.round)) return;
+    const rq = vw.req;
+    if (m.c === g.vc && g.S && vw.round === g.round) {      // Wiederholung als Lebenszeichen: Antwort notfalls nochmal schicken
+      if (rq && g.answered && g.answered.id === rq.id && Date.now() - g.answered.t > 2500) { g.answered.t = Date.now(); send(net.peerId, g.answered.msg); }
+      return;
+    }
+    if (vw.round !== g.round) {
+      resetBoard();
+      if (ui.sheetTag === 'end' || ui.sheetTag === 'choose' || ui.sheetTag === 'confirm') closeSheet();
+      g.reqId = 0; g.answered = null;
+    }
+    const first = !g.S;
+    g.S = vw.S; g.vc = m.c; g.round = vw.round; g.log = Array.isArray(vw.log) ? vw.log.map(String) : [];
+    if (Array.isArray(vw.names)) g.names = vw.names.map(x => cleanName(x) || 'Gast');
+    if (Array.isArray(vw.tally)) g.tally = vw.tally.map(x => +x || 0);
+    ui.last = String(vw.last || '');
+    ui.bubble = {};
+    if (vw.bubble) for (const k in vw.bubble) ui.bubble[k] = String(vw.bubble[k]).slice(0, 12);
+    if (vw.sfx && vw.sfx.n !== g.sfxN) { const was = g.sfxN; g.sfxN = vw.sfx.n; if (!first && was >= 0) sfx(String(vw.sfx.k), true); }
+    const newId = rq ? rq.id : 0;
+    if (newId !== g.reqId) {
+      g.reqId = newId; g.answered = null;
+      if (ui.waiting) stopInput();
+      if (ui.callFin) ui.callFin(false);
+      if (ui.sheetTag === 'confirm' || ui.sheetTag === 'choose') closeSheet();
+      if (rq) startReq(rq);
+    }
+    if (!rq) ui.now = String(vw.now || '');
+    render();
+    if (g.S.over && g.endRound !== g.round) {
+      g.endRound = g.round;
+      setTimeout(() => { if (G === g && g.S.over && g.endRound === g.round) endSheet(); }, 1100);
+    }
+  }
+
+  /* ---------- Start ---------- */
+  function wire() {
+    $('#bPlay').addEventListener('click', tryPlay);
+    $('#bDraw').addEventListener('click', () => submit({ draw: true }));
+    $('#deck').addEventListener('click', () => { if (ui.waiting) submit({ draw: true }); });
+    $('#bTip').addEventListener('click', tip);
+    $('#bSort').addEventListener('click', () => { cfg.sort = cfg.sort === 'suit' ? 'rank' : 'suit'; save('bb_cfg', cfg); render(); });
+    $('#bRules').addEventListener('click', () => { const t = ui.sheetTag; if (['lobby', 'gone', 'confirm', 'choose', 'rules'].includes(t)) return; rulesSheet(t === 'end' ? endSheet : t === 'start' ? startSheet : t === 'menu' ? onlineMenu : null); });
+    $('#bMenu').addEventListener('click', () => { if (['lobby', 'gone', 'end', 'confirm', 'choose'].includes(ui.sheetTag)) return; startSheet(); });
+    $('#bSound').addEventListener('click', () => { cfg.sound = !cfg.sound; save('bb_cfg', cfg); if (cfg.sound) sfx('play', true); render(); $('#bSound').setAttribute('aria-pressed', cfg.sound ? 'true' : 'false'); });
+    $('#status').addEventListener('click', logSheet);
+    $('#combo').addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || !ui.waiting) return;
+      ui.sel = new Set(b.dataset.key.split(',').map(Number)); ui.tip = null; render();
+    });
+    $('#sheet').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && e.target.id === 'nick') { e.preventDefault(); if (net.state === 'off' || net.state === 'error') goSearch(); } });
+    let rz = 0;
+    window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(render, 80); });
+    window.addEventListener('pagehide', () => { if (net.state !== 'off') netOff(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && !$('#sheet').hidden && ui.sheetClose) { const c = ui.sheetClose; closeSheet(); c(); }
+    });
+  }
+  function start(data) {
+    wire();
+    if (data && data.S && data.S.hands && data.started && !data.S.over) {
+      resetBoard();
+      roundSP = data.round || 1;
+      G = { id: ++gid, S: data.S, round: roundSP, pk: data.pk || 0, mv: data.mv || 0, log: data.log || [], started: true, names: BOTS.slice(0, data.S.n), tally: tally.w };
+      ui.shuffles = G.S.shuffles || 0;
+      ui.last = 'Weiter geht es.';
+      render(); loop();
+    } else { deal(false, false); startSheet(); }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+  }
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(() => (G && G.S && !G.online ? { S: G.S, round: G.round, pk: G.pk, mv: G.mv, log: G.log.slice(-40), started: G.started } : {}));
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+  window.__bb = { get G() { return G; }, ui, cfg, net };
+})();
+
+</script>
+</body>
+</html>
